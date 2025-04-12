@@ -36,5 +36,10 @@ jobs:
           MODEL_NAME: ${{ secrets.MODEL_NAME }}
           LANGUAGE: ${{ vars.LANGUAGE }}
           TRANSLATE_TITLE: ${{ vars.TRANSLATE_TITLE }}
+          GENERATE_RSS: ${{ vars.GENERATE_RSS }}
+          RSS_OUTPUT: ${{ vars.RSS_OUTPUT }}
+          RSS_TITLE: ${{ vars.RSS_TITLE }}
+          RSS_LINK: ${{ vars.RSS_LINK }}
+          RSS_DESCRIPTION: ${{ vars.RSS_DESCRIPTION }}
         run: |
           uv run main.py --debug

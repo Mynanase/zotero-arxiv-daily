@@ -8,6 +8,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 from pyzotero import zotero
 from recommender import rerank_paper
 from construct_email import render_email, send_email
+from construct_rss import render_rss, save_rss
 from tqdm import trange,tqdm
 from loguru import logger
 from gitignore_parser import parse_gitignore
@@ -109,7 +110,7 @@ if __name__ == '__main__':
     add_argument('--smtp_server', type=str, help='SMTP server')
     add_argument('--smtp_port', type=int, help='SMTP port')
     add_argument('--sender', type=str, help='Sender email address')
-    add_argument('--receiver', type=str, help='Receiver email address')
+    add_argument('--receiver', type=str, help='Receiver email address(es), comma-separated for multiple recipients')
     add_argument('--sender_password', type=str, help='Sender email password')
     add_argument(
         "--use_llm_api",
@@ -146,6 +147,36 @@ if __name__ == '__main__':
         type=bool,
         help="Translate paper titles to the specified language",
         default=False,
+    )
+    add_argument(
+        "--generate_rss",
+        type=bool,
+        help="Generate RSS feed",
+        default=False,
+    )
+    add_argument(
+        "--rss_output",
+        type=str,
+        help="RSS feed output path",
+        default="feed.xml",
+    )
+    add_argument(
+        "--rss_title",
+        type=str,
+        help="RSS feed title",
+        default="Daily arXiv Papers",
+    )
+    add_argument(
+        "--rss_link",
+        type=str,
+        help="RSS feed link",
+        default=None,
+    )
+    add_argument(
+        "--rss_description",
+        type=str,
+        help="RSS feed description",
+        default="Daily arXiv paper recommendations",
     )
     parser.add_argument('--debug', action='store_true', help='Debug mode')
     args = parser.parse_args()
@@ -189,4 +220,18 @@ if __name__ == '__main__':
     logger.info("Sending email...")
     send_email(args.sender, args.receiver, args.sender_password, args.smtp_server, args.smtp_port, html)
     logger.success("Email sent successfully! If you don't receive the email, please check the configuration and the junk box.")
+    
+    # 生成 RSS Feed（如果启用）
+    if args.generate_rss:
+        logger.info("Generating RSS feed...")
+        feed = render_rss(
+            papers, 
+            feed_title=args.rss_title,
+            feed_link=args.rss_link,
+            feed_description=args.rss_description
+        )
+        if save_rss(feed, args.rss_output):
+            logger.success(f"RSS feed generated successfully at {args.rss_output}")
+        else:
+            logger.error("Failed to generate RSS feed")
 

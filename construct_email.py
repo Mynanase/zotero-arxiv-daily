@@ -146,14 +146,24 @@ def render_email(papers:list[ArxivPaper]):
     content = '<br>' + '</br><br>'.join(parts) + '</br>'
     return framework.replace('__CONTENT__', content)
 
-def send_email(sender:str, receiver:str, password:str,smtp_server:str,smtp_port:int, html:str,):
+def send_email(sender:str, receivers:str, password:str, smtp_server:str, smtp_port:int, html:str,):
     def _format_addr(s):
         name, addr = parseaddr(s)
         return formataddr((Header(name, 'utf-8').encode(), addr))
 
+    # 处理多个接收者邮箱（以逗号分隔）
+    receiver_list = [r.strip() for r in receivers.split(',') if r.strip()]
+    
     msg = MIMEText(html, 'html', 'utf-8')
     msg['From'] = _format_addr('Github Action <%s>' % sender)
-    msg['To'] = _format_addr('You <%s>' % receiver)
+    
+    # 设置收件人（用于显示，实际发送使用receiver_list）
+    if len(receiver_list) == 1:
+        msg['To'] = _format_addr('You <%s>' % receiver_list[0])
+    else:
+        # 多收件人时使用第一个作为显示，但会发送给所有人
+        msg['To'] = _format_addr('You <%s>' % receiver_list[0])
+    
     today = datetime.datetime.now().strftime('%Y/%m/%d')
     msg['Subject'] = Header(f'Daily arXiv {today}', 'utf-8').encode()
 
@@ -166,5 +176,5 @@ def send_email(sender:str, receiver:str, password:str,smtp_server:str,smtp_port:
         server = smtplib.SMTP_SSL(smtp_server, smtp_port)
 
     server.login(sender, password)
-    server.sendmail(sender, [receiver], msg.as_string())
+    server.sendmail(sender, receiver_list, msg.as_string())
     server.quit()

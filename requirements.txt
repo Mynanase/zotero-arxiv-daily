@@ -1,0 +1,12 @@
+arxiv>=1.4.7
+pyzotero>=1.5.5
+python-dotenv>=1.0.0
+tqdm>=4.65.0
+loguru>=0.7.0
+gitignore-parser>=0.1.6
+feedparser>=6.0.10
+llama-cpp-python>=0.2.11
+openai>=1.1.1
+tiktoken>=0.5.1
+feedgen>=0.9.0  # 用于生成 RSS Feed
+lxml>=4.9.3  # 用于处理 XML 文件
