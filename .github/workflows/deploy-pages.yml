@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   workflow_run:
-    workflows: ["Send emails daily"]
+    workflows: ["Send emails daily", "Test workflow"]
     types:
       - completed
   # 允许手动触发
@@ -32,6 +32,15 @@ jobs:
         
       - name: Setup Pages
         uses: actions/configure-pages@v4
+        
+      - name: Ensure public directory exists
+        run: mkdir -p public
+        
+      - name: Create default content if needed
+        run: |
+          if [ ! -f "public/feed.xml" ] && [ ! -f "public/index.html" ]; then
+            echo "<html><body><h1>Zotero ArXiv Daily</h1><p>RSS feed will be available soon.</p></body></html>" > public/index.html
+          fi
         
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
