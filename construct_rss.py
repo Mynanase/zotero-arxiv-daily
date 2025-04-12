@@ -72,7 +72,8 @@ def render_rss(papers: list[ArxivPaper], feed_title: str = "Daily arXiv Papers",
     fg.subtitle(feed_description)  # 使用 subtitle 而不是 description，与 Atom 格式一致
     fg.language('en')
     
-    today = datetime.datetime.now()
+    # 添加时区信息以避免 ValueError: Datetime object has no timezone info
+    today = datetime.datetime.now(datetime.timezone.utc)
     fg.updated(today)  # 在 Atom 中使用 updated 而不是 pubDate
     
     if not papers:
