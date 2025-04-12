@@ -141,6 +141,12 @@ if __name__ == '__main__':
         help="Language of TLDR",
         default="English",
     )
+    add_argument(
+        "--translate_title",
+        type=bool,
+        help="Translate paper titles to the specified language",
+        default=False,
+    )
     parser.add_argument('--debug', action='store_true', help='Debug mode')
     args = parser.parse_args()
     assert (
