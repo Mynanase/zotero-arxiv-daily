@@ -19,6 +19,10 @@ jobs:
         with:
           version: '0.5.4'
 
+      - name: Install dependencies
+        run: |
+          uv pip install -r requirements.txt
+
       - name: Run script
         env:
           ZOTERO_ID: ${{ secrets.ZOTERO_ID }}
@@ -44,4 +48,4 @@ jobs:
           RSS_LINK: ${{ vars.RSS_LINK }}
           RSS_DESCRIPTION: ${{ vars.RSS_DESCRIPTION }}
         run: |
-          uv run main.py
+          python main.py
