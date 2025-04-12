@@ -158,7 +158,7 @@ if __name__ == '__main__':
         "--rss_output",
         type=str,
         help="RSS feed output path",
-        default="feed.xml",
+        default="public/feed.xml",
     )
     add_argument(
         "--rss_title",
