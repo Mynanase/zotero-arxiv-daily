@@ -45,6 +45,9 @@ jobs:
         with:
           version: '0.5.4'
 
+      - name: Install dependencies
+        run: uv venv && source .venv/bin/activate && uv sync
+
       - name: Process papers and generate RSS (Debug Mode)
         id: process_papers
         continue-on-error: true  # 允许此步骤失败但继续工作流
