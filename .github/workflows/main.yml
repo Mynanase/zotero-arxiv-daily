@@ -42,9 +42,6 @@ jobs:
         with:
           version: '0.5.4'
 
-      - name: Install dependencies
-        run: uv venv && source .venv/bin/activate && uv sync
-
       - name: Process papers and generate RSS
         id: process_papers
         continue-on-error: true  # 允许此步骤失败但继续工作流
@@ -73,6 +70,11 @@ jobs:
           RSS_LINK: ${{ vars.RSS_LINK || github.event.repository.html_url }}
           RSS_DESCRIPTION: ${{ vars.RSS_DESCRIPTION || 'Daily arXiv paper recommendations based on your Zotero library' }}
         run: |
+          # 创建和激活虚拟环境
+          uv venv
+          source .venv/bin/activate
+          uv sync
+          
           # 运行主脚本，处理论文并生成 RSS feed
           python main.py
           
