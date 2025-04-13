@@ -15,6 +15,7 @@ from tempfile import mkstemp
 from paper import ArxivPaper
 from llm import set_global_llm
 import feedparser
+from construct_rss import render_rss, save_rss
 
 def get_zotero_corpus(id:str,key:str) -> list[dict]:
     zot = zotero.Zotero(id, 'user', key)
@@ -62,16 +63,15 @@ def get_arxiv_paper(query:str, debug:bool=False) -> list[ArxivPaper]:
         bar.close()
 
     else:
-        logger.debug("Retrieve 5 arxiv papers regardless of the date.")
-        search = arxiv.Search(query='cat:cs.AI', sort_by=arxiv.SortCriterion.SubmittedDate)
+        logger.debug("Retrieve 3 arxiv papers regardless of the date.")
+        search = arxiv.Search(query='cat:astro-ph.GA', sort_by=arxiv.SortCriterion.SubmittedDate)
         papers = []
         for i in client.results(search):
             papers.append(ArxivPaper(i))
-            if len(papers) == 5:
+            if len(papers) == 3:
                 break
 
     return papers
-
 
 
 parser = argparse.ArgumentParser(description='Recommender system for academic papers')
@@ -141,6 +141,36 @@ if __name__ == '__main__':
         default="English",
     )
     add_argument(
+        "--generate_rss",
+        type=bool,
+        help="Generate RSS feed",
+        default=False,
+    )
+    add_argument(
+        "--rss_output",
+        type=str,
+        help="Path to save RSS feed",
+        default="public/index.xml",
+    )
+    add_argument(
+        "--rss_title",
+        type=str,
+        help="Title for RSS feed",
+        default="ArXiv Daily Papers",
+    )
+    add_argument(
+        "--rss_link",
+        type=str,
+        help="Link for RSS feed",
+        default="https://arxiv.org/",
+    )
+    add_argument(
+        "--rss_description",
+        type=str,
+        help="Description for RSS feed",
+        default="Daily arXiv paper recommendations based on your Zotero library",
+    )
+    add_argument(
         "--translate_title",
         type=bool,
         help="Translate paper titles to the specified language",
@@ -185,7 +215,30 @@ if __name__ == '__main__':
             set_global_llm(lang=args.language)
 
     html = render_email(papers)
-    logger.info("Sending email...")
-    send_email(args.sender, args.receiver, args.sender_password, args.smtp_server, args.smtp_port, html)
-    logger.success("Email sent successfully! If you don't receive the email, please check the configuration and the junk box.")
+    
+    # 生成 RSS feed
+    if args.generate_rss:
+        logger.info("Generating RSS feed...")
+        feed_url = f"{args.rss_link.rstrip('/')}/{os.path.basename(args.rss_output)}"
+        feed = render_rss(
+            papers, 
+            feed_title=args.rss_title,
+            feed_link=args.rss_link,
+            feed_description=args.rss_description,
+            feed_url=feed_url
+        )
+        if save_rss(feed, args.rss_output):
+            logger.success(f"RSS feed generated successfully at {args.rss_output}")
+            logger.info(f"RSS feed will be available at: {feed_url}")
+        else:
+            logger.error("Failed to generate RSS feed")
+    
+    # 发送邮件（如果失败不影响 RSS 生成）
+    try:
+        logger.info("Sending email...")
+        send_email(args.sender, args.receiver, args.sender_password, args.smtp_server, args.smtp_port, html)
+        logger.success("Email sent successfully! If you don't receive the email, please check the configuration and the junk box.")
+    except Exception as e:
+        logger.error(f"Failed to send email: {e}")
+        logger.info("Email sending failed, but other operations completed successfully.")
 
