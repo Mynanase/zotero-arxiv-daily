@@ -10,7 +10,6 @@ from requests.adapters import HTTPAdapter, Retry
 from loguru import logger
 import tiktoken
 from contextlib import ExitStack
-import os
 
 
 
@@ -22,34 +21,6 @@ class ArxivPaper:
     @property
     def title(self) -> str:
         return self._paper.title
-    
-    @cached_property
-    def translated_title(self) -> Optional[str]:
-        """Translate the paper title to the language specified in LLM configuration"""
-        # Check if title translation is enabled via environment variable
-        translate_title = os.environ.get('TRANSLATE_TITLE', '').lower() in ['true', '1']
-        if not translate_title:
-            return None
-            
-        llm = get_llm()
-        source_lang = "English"  # Assuming most papers are in English
-        target_lang = llm.lang
-        
-        # Skip translation if target language is already English
-        if target_lang.lower() == source_lang.lower():
-            return None
-            
-        prompt = f"Translate the following academic paper title from {source_lang} to {target_lang}:\n\n{self.title}\n\nTranslation:"        
-        translated = llm.generate(
-            messages=[
-                {
-                    "role": "system",
-                    "content": f"You are a professional translator who accurately translates academic paper titles from {source_lang} to {target_lang}. Provide only the translation without any additional text.",
-                },
-                {"role": "user", "content": prompt},
-            ]
-        )
-        return translated.strip()
     
     @property
     def summary(self) -> str:
