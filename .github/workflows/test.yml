@@ -1,0 +1,107 @@
+name: Test workflow
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - dev
+      - main
+    paths-ignore:
+      - '**.md'
+      - '.github/FUNDING.yml'
+      - 'LICENSE'
+
+# 设置权限以允许部署到 GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 并发控制，确保部署按顺序进行
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  test-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.REPOSITORY || github.repository }}
+          ref: ${{ vars.REF || github.ref }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: '0.5.4'
+
+      - name: Process papers and generate RSS (Debug Mode)
+        id: process_papers
+        continue-on-error: true  # 允许此步骤失败但继续工作流
+        env:
+          ZOTERO_ID: ${{ secrets.ZOTERO_ID }}
+          ZOTERO_KEY: ${{ secrets.ZOTERO_KEY }}
+          ZOTERO_IGNORE: ${{ vars.ZOTERO_IGNORE }}
+          ARXIV_QUERY: ${{ vars.ARXIV_QUERY }}
+          SEND_EMPTY: ${{ vars.SEND_EMPTY }}
+          SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SENDER: ${{ secrets.SENDER }}
+          RECEIVER: ${{ secrets.RECEIVER }}
+          SENDER_PASSWORD: ${{ secrets.SENDER_PASSWORD }}
+          MAX_PAPER_NUM: ${{ vars.MAX_PAPER_NUM }}
+          USE_LLM_API: ${{ vars.USE_LLM_API }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_API_BASE: ${{ vars.OPENAI_API_BASE }}
+          MODEL_NAME: ${{ vars.MODEL_NAME }}
+          LANGUAGE: ${{ vars.LANGUAGE }}
+          TRANSLATE_TITLE: ${{ vars.TRANSLATE_TITLE }}
+          # RSS feed 相关配置
+          GENERATE_RSS: 'true'
+          RSS_OUTPUT: 'public/index.xml'
+          RSS_TITLE: ${{ vars.RSS_TITLE || 'ArXiv Daily Papers (Test)' }}
+          RSS_LINK: ${{ vars.RSS_LINK || github.event.repository.html_url }}
+          RSS_DESCRIPTION: ${{ vars.RSS_DESCRIPTION || 'Daily arXiv paper recommendations based on your Zotero library' }}
+        run: |
+          # 运行主脚本，处理论文并生成 RSS feed（使用调试模式）
+          python main.py --debug
+          
+          # 确保 public 目录存在
+          mkdir -p public
+          
+          # 如果 RSS feed 没有生成，创建一个默认的
+          if [ ! -f "public/index.xml" ]; then
+            echo "RSS feed not generated, creating a default one"
+            echo '<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom"><title>ArXiv Daily Papers (Test)</title><link href="${{ vars.RSS_LINK || github.event.repository.html_url }}" rel="self"/><updated>$(date -u +"%Y-%m-%dT%H:%M:%SZ")</updated><id>${{ vars.RSS_LINK || github.event.repository.html_url }}</id><subtitle>Daily arXiv paper recommendations based on your Zotero library (Test Mode)</subtitle></feed>' > public/index.xml
+          fi
+      
+      - name: Check process status
+        if: steps.process_papers.outcome == 'failure'
+        run: |
+          echo "::warning::Paper processing failed, but continuing with deployment of default RSS feed"
+          mkdir -p public
+          if [ ! -f "public/index.xml" ]; then
+            echo '<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom"><title>ArXiv Daily Papers (Test)</title><link href="${{ vars.RSS_LINK || github.event.repository.html_url }}" rel="self"/><updated>$(date -u +"%Y-%m-%dT%H:%M:%SZ")</updated><id>${{ vars.RSS_LINK || github.event.repository.html_url }}</id><subtitle>Daily arXiv paper recommendations based on your Zotero library (Test Mode)</subtitle></feed>' > public/index.xml
+          fi
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './public'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

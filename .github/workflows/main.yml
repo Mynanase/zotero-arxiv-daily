@@ -1,22 +1,12 @@
-name: ArXiv Daily - Process Papers and Deploy
+name: Send emails and deploy RSS daily
 
 on:
-  # 每天定时运行（生产环境）
+  # 每天定时运行
   schedule:
     - cron: '0 22 * * *'
   
   # 允许手动触发
   workflow_dispatch:
-  
-  # 测试时使用的触发条件（与原 test.yml 保持一致）
-  push:
-    branches:
-      - dev
-      - main
-    paths-ignore:
-      - '**.md'
-      - '.github/FUNDING.yml'
-      - 'LICENSE'
 
 # 设置权限以允许部署到 GitHub Pages
 permissions:
@@ -52,21 +42,6 @@ jobs:
         with:
           version: '0.5.4'
 
-      - name: Install dependencies
-        run: uv pip install -e .
-
-      # 设置运行模式：如果是由推送触发或手动触发，使用调试模式；如果是定时触发，使用正常模式
-      - name: Set run mode
-        id: set_mode
-        run: |
-          if [[ "${{ github.event_name }}" == "schedule" ]]; then
-            echo "Running in production mode"
-            echo "debug_flag=" >> $GITHUB_OUTPUT
-          else
-            echo "Running in debug mode"
-            echo "debug_flag=--debug" >> $GITHUB_OUTPUT
-          fi
-      
       - name: Process papers and generate RSS
         id: process_papers
         continue-on-error: true  # 允许此步骤失败但继续工作流
@@ -92,11 +67,11 @@ jobs:
           GENERATE_RSS: 'true'
           RSS_OUTPUT: 'public/index.xml'
           RSS_TITLE: ${{ vars.RSS_TITLE || 'ArXiv Daily Papers' }}
-          RSS_LINK: ${{ vars.RSS_LINK || github.event.repository.html_url}}
+          RSS_LINK: ${{ vars.RSS_LINK || github.event.repository.html_url }}
           RSS_DESCRIPTION: ${{ vars.RSS_DESCRIPTION || 'Daily arXiv paper recommendations based on your Zotero library' }}
         run: |
           # 运行主脚本，处理论文并生成 RSS feed
-          python main.py ${{ steps.set_mode.outputs.debug_flag }}
+          python main.py
           
           # 确保 public 目录存在
           mkdir -p public
