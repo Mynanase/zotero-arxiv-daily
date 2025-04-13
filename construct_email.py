@@ -145,9 +145,13 @@ def send_email(sender:str, receiver:str, password:str,smtp_server:str,smtp_port:
         name, addr = parseaddr(s)
         return formataddr((Header(name, 'utf-8').encode(), addr))
 
+    # Split receiver by comma to support multiple recipients
+    receivers = [r.strip() for r in receiver.split(',') if r.strip()]
+    
     msg = MIMEText(html, 'html', 'utf-8')
     msg['From'] = _format_addr('Github Action <%s>' % sender)
-    msg['To'] = _format_addr('You <%s>' % receiver)
+    # Use the first recipient for the 'To' field display
+    msg['To'] = _format_addr('You <%s>' % receivers[0]) if receivers else ''
     today = datetime.datetime.now().strftime('%Y/%m/%d')
     msg['Subject'] = Header(f'Daily arXiv {today}', 'utf-8').encode()
 
@@ -160,5 +164,6 @@ def send_email(sender:str, receiver:str, password:str,smtp_server:str,smtp_port:
         server = smtplib.SMTP_SSL(smtp_server, smtp_port)
 
     server.login(sender, password)
-    server.sendmail(sender, [receiver], msg.as_string())
+    # Send to all recipients
+    server.sendmail(sender, receivers, msg.as_string())
     server.quit()
