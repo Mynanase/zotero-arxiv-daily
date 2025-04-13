@@ -38,7 +38,7 @@ jobs:
         
       - name: Create default content if needed
         run: |
-          if [ ! -f "public/feed.xml" ] && [ ! -f "public/index.html" ]; then
+          if [ ! -f "public/index.xml" ] && [ ! -f "public/index.html" ]; then
             echo "<html><body><h1>Zotero ArXiv Daily</h1><p>RSS feed will be available soon.</p></body></html>" > public/index.html
           fi
         
