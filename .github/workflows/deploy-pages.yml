@@ -38,8 +38,12 @@ jobs:
         
       - name: Create default content if needed
         run: |
-          if [ ! -f "public/index.xml" ] && [ ! -f "public/index.html" ]; then
-            echo "<html><body><h1>Zotero ArXiv Daily</h1><p>RSS feed will be available soon.</p></body></html>" > public/index.html
+          # Always create an index.html that redirects to index.xml
+          echo "<html><head><meta http-equiv='refresh' content='0;url=index.xml'></head><body><h1>Zotero ArXiv Daily</h1><p>Redirecting to <a href='index.xml'>RSS feed</a>...</p></body></html>" > public/index.html
+          
+          # If index.xml doesn't exist, create a placeholder
+          if [ ! -f "public/index.xml" ]; then
+            echo "<?xml version='1.0' encoding='UTF-8'?><feed xmlns='http://www.w3.org/2005/Atom'><title>Zotero ArXiv Daily</title><subtitle>RSS feed will be available soon.</subtitle></feed>" > public/index.xml
           fi
         
       - name: Upload artifact
