@@ -92,7 +92,7 @@ jobs:
           GENERATE_RSS: 'true'
           RSS_OUTPUT: 'public/index.xml'
           RSS_TITLE: ${{ vars.RSS_TITLE || 'ArXiv Daily Papers' }}
-          RSS_LINK: ${{ vars.RSS_LINK || github.event.repository.html_url || 'https://arxiv.org/' }}
+          RSS_LINK: ${{ vars.RSS_LINK || github.event.repository.html_url}}
           RSS_DESCRIPTION: ${{ vars.RSS_DESCRIPTION || 'Daily arXiv paper recommendations based on your Zotero library' }}
         run: |
           # 运行主脚本，处理论文并生成 RSS feed
@@ -104,7 +104,7 @@ jobs:
           # 如果 RSS feed 没有生成，创建一个默认的
           if [ ! -f "public/index.xml" ]; then
             echo "RSS feed not generated, creating a default one"
-            echo '<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom"><title>ArXiv Daily Papers</title><link href="${{ vars.RSS_LINK || github.event.repository.html_url || "https://arxiv.org/" }}" rel="self"/><updated>$(date -u +"%Y-%m-%dT%H:%M:%SZ")</updated><id>${{ vars.RSS_LINK || github.event.repository.html_url || "https://arxiv.org/" }}</id><subtitle>Daily arXiv paper recommendations based on your Zotero library</subtitle></feed>' > public/index.xml
+            echo '<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom"><title>ArXiv Daily Papers</title><link href="${{ vars.RSS_LINK || github.event.repository.html_url }}" rel="self"/><updated>$(date -u +"%Y-%m-%dT%H:%M:%SZ")</updated><id>${{ vars.RSS_LINK || github.event.repository.html_url }}</id><subtitle>Daily arXiv paper recommendations based on your Zotero library</subtitle></feed>' > public/index.xml
           fi
       
       - name: Check process status
@@ -113,7 +113,7 @@ jobs:
           echo "::warning::Paper processing failed, but continuing with deployment of default RSS feed"
           mkdir -p public
           if [ ! -f "public/index.xml" ]; then
-            echo '<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom"><title>ArXiv Daily Papers</title><link href="${{ vars.RSS_LINK || github.event.repository.html_url || "https://arxiv.org/" }}" rel="self"/><updated>$(date -u +"%Y-%m-%dT%H:%M:%SZ")</updated><id>${{ vars.RSS_LINK || github.event.repository.html_url || "https://arxiv.org/" }}</id><subtitle>Daily arXiv paper recommendations based on your Zotero library</subtitle></feed>' > public/index.xml
+            echo '<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom"><title>ArXiv Daily Papers</title><link href="${{ vars.RSS_LINK || github.event.repository.html_url }}" rel="self"/><updated>$(date -u +"%Y-%m-%dT%H:%M:%SZ")</updated><id>${{ vars.RSS_LINK || github.event.repository.html_url }}</id><subtitle>Daily arXiv paper recommendations based on your Zotero library</subtitle></feed>' > public/index.xml
           fi
 
       - name: Setup Pages
