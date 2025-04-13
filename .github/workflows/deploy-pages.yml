@@ -27,7 +27,17 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v4
         
-      # We no longer need to create content here as it's created in the main workflow
+      # Create a placeholder artifact if none exists
+      - name: Create placeholder artifact
+        run: |
+          mkdir -p artifact
+          echo "<html><head><title>Zotero ArXiv Daily</title></head><body><h1>Zotero ArXiv Daily</h1><p>RSS feed will be available soon.</p></body></html>" > artifact/index.html
+          echo "<?xml version='1.0' encoding='UTF-8'?><feed xmlns='http://www.w3.org/2005/Atom'><title>Zotero ArXiv Daily</title><subtitle>RSS feed will be available soon.</subtitle></feed>" > artifact/index.xml
+      
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './artifact'
           
       - name: Deploy to GitHub Pages
         id: deployment
