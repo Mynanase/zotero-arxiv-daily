@@ -1,11 +1,8 @@
 name: Deploy to GitHub Pages
 
 on:
-  workflow_run:
-    workflows: ["Send emails daily", "Test workflow"]
-    types:
-      - completed
-  # 允许手动触发
+  # This workflow is now only triggered manually
+  # The main workflow now handles the artifact creation and upload
   workflow_dispatch:
 
 # 设置 GITHUB_TOKEN 的权限
@@ -25,31 +22,12 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    # Always run when manually triggered
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        
       - name: Setup Pages
         uses: actions/configure-pages@v4
         
-      - name: Ensure public directory exists
-        run: mkdir -p public
-        
-      - name: Create default content if needed
-        run: |
-          # Always create an index.html that redirects to index.xml
-          echo "<html><head><meta http-equiv='refresh' content='0;url=index.xml'></head><body><h1>Zotero ArXiv Daily</h1><p>Redirecting to <a href='index.xml'>RSS feed</a>...</p></body></html>" > public/index.html
-          
-          # If index.xml doesn't exist, create a placeholder
-          if [ ! -f "public/index.xml" ]; then
-            echo "<?xml version='1.0' encoding='UTF-8'?><feed xmlns='http://www.w3.org/2005/Atom'><title>Zotero ArXiv Daily</title><subtitle>RSS feed will be available soon.</subtitle></feed>" > public/index.xml
-          fi
-        
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: './public'
+      # We no longer need to create content here as it's created in the main workflow
           
       - name: Deploy to GitHub Pages
         id: deployment
