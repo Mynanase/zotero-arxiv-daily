@@ -123,6 +123,9 @@ def render_rss(papers: list[ArxivPaper], feed_title: str = "Daily arXiv Papers",
 def save_rss(feed_generator, output_path: str = "feed.xml"):
     """保存 RSS Feed 到文件，使用 Atom 格式"""
     try:
+        # 确保目标目录存在
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        
         # 使用 atom_file 而不是 rss_file，生成 Atom 格式的 feed
         feed_generator.atom_file(output_path)
         
