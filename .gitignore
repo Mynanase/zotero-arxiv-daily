@@ -11,3 +11,6 @@ wheels/
 # Virtual environments
 .venv
 test.ipynb
+
+# RSS feed output directory
+public/
