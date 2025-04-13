@@ -1,6 +1,14 @@
 name: Test workflow
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - dev
+      - main
+    paths-ignore:
+      - '**.md'
+      - '.github/FUNDING.yml'
+      - 'LICENSE'
 
 jobs:
   calculate-and-send:
