@@ -43,7 +43,9 @@ class ArxivPaper:
         if target_lang.lower() == source_lang.lower():
             return None
             
-        prompt = f"Translate the following academic paper title from {source_lang} to {target_lang}:\n\n{self.title}\n\nTranslation:"        
+        prompt = f"""Translate the following academic paper title from {source_lang} to {target_lang}. Focus on accurately conveying technical terminology and maintaining the academic style. 
+        Title: {self.title}
+        Translation:"""       
         translated = llm.generate(
             messages=[
                 {
@@ -188,12 +190,15 @@ class ArxivPaper:
             if match:
                 conclusion = match.group(0)
         llm = get_llm()
-        prompt = """Given the title, abstract, introduction and the conclusion (if any) of a paper in latex format, generate a one-sentence TLDR summary in __LANG__:
-        
-        \\title{__TITLE__}
-        \\begin{abstract}__ABSTRACT__\\end{abstract}
-        __INTRODUCTION__
-        __CONCLUSION__
+        prompt = """Summarize the following academic paper in a single, concise sentence in __LANG__. 
+        Focus on the main contribution, methodology, and key findings.
+
+        Title: __TITLE__
+        Abstract: __ABSTRACT__
+        Introduction: __INTRODUCTION__
+        Conclusion: __CONCLUSION__
+
+        Your summary should be informative, precise, and highlight what makes this paper significant.
         """
         prompt = prompt.replace('__LANG__', llm.lang)
         prompt = prompt.replace('__TITLE__', self.title)
