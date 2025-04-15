@@ -29,15 +29,12 @@ def create_feed_generator(
         # 尝试使用 register_ns 方法
         fg.register_ns("dc", "http://purl.org/dc/elements/1.1/")
         fg.register_ns("content", "http://purl.org/rss/1.0/modules/content/")
-        # 添加自定义命名空间用于标题翻译和相关度
-        fg.register_ns("zotero", "http://zotero.org/ns/1.0/")
     except AttributeError:
         # 如果失败，尝试使用 namespaces 属性
         try:
             fg.namespaces.update({
                 'dc': 'http://purl.org/dc/elements/1.1/',
-                'content': 'http://purl.org/rss/1.0/modules/content/',
-                'zotero': 'http://zotero.org/ns/1.0/'
+                'content': 'http://purl.org/rss/1.0/modules/content/'
             })
         except AttributeError:
             # 如果两种方法都失败，忽略命名空间注册
@@ -114,41 +111,58 @@ def save_rss(feed_generator, output_path: str = "public/index.xml"):
         # 确保目标目录存在
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         
-        # 生成 Atom 格式的 feed XML
-        atom_str = feed_generator.atom_str(pretty=True)
-        atom_xml = atom_str.decode('utf-8')
+        # 首先生成标准的 Atom feed
+        feed_generator.atom_file(output_path)
+        
+        # 然后读取生成的文件
+        with open(output_path, 'r', encoding='utf-8') as f:
+            atom_xml = f.read()
         
         # 添加 zotero 命名空间声明
         if 'xmlns:zotero="http://zotero.org/ns/1.0/"' not in atom_xml:
             atom_xml = atom_xml.replace('<feed ', '<feed xmlns:zotero="http://zotero.org/ns/1.0/" ')
         
-        # 遍历所有条目，添加自定义元素
-        for i, entry in enumerate(feed_generator.entry()):
-            # 在每个条目中查找标题翻译
-            if hasattr(entry, '_translated_title') and entry._translated_title:
-                # 在 XML 中定位该条目的结束标签
-                entry_id = f"<id>http://arxiv.org/abs/{entry.id().split('/')[-1]}</id>"
-                entry_end_tag = "</entry>"
-                entry_pos = atom_xml.find(entry_id)
-                if entry_pos != -1:
-                    end_entry_pos = atom_xml.find(entry_end_tag, entry_pos)
-                    if end_entry_pos != -1:
-                        # 在条目结束标签前插入翻译元素
-                        title_translation_element = f"\n  <zotero:titleTranslation>{entry._translated_title}</zotero:titleTranslation>"
-                        atom_xml = atom_xml[:end_entry_pos] + title_translation_element + atom_xml[end_entry_pos:]
+        # 准备存储每个条目的自定义元素
+        custom_elements = {}
+        
+        # 收集所有条目的自定义元素
+        for entry in feed_generator.entry():
+            arxiv_id = entry.id().split('/')[-1]
+            elements = []
             
-            # 在每个条目中查找相关度分数
+            # 收集标题翻译
+            if hasattr(entry, '_translated_title') and entry._translated_title:
+                elements.append(f"<zotero:titleTranslation>{entry._translated_title}</zotero:titleTranslation>")
+            
+            # 收集相关度分数
             if hasattr(entry, '_relevance_score') and entry._relevance_score is not None:
-                # 在 XML 中定位该条目的结束标签
-                entry_id = f"<id>http://arxiv.org/abs/{entry.id().split('/')[-1]}</id>"
-                entry_end_tag = "</entry>"
-                entry_pos = atom_xml.find(entry_id)
-                if entry_pos != -1:
-                    end_entry_pos = atom_xml.find(entry_end_tag, entry_pos)
-                    if end_entry_pos != -1:
-                        # 在条目结束标签前插入相关度元素
-                        relevance_score_element = f"\n  <zotero:relevanceScore>{entry._relevance_score}</zotero:relevanceScore>"
-                        atom_xml = atom_xml[:end_entry_pos] + relevance_score_element + atom_xml[end_entry_pos:]
+                elements.append(f"<zotero:relevanceScore>{entry._relevance_score}</zotero:relevanceScore>")
+            
+            if elements:
+                custom_elements[arxiv_id] = elements
+        
+        # 如果没有自定义元素要添加，直接返回
+        if not custom_elements:
+            logger.info(f"RSS feed saved to {output_path}")
+            return True
+        
+        # 对每个条目 ID 进行处理
+        for arxiv_id, elements in custom_elements.items():
+            # 定位条目
+            entry_pattern = f"<id>http://arxiv.org/abs/{arxiv_id}</id>"
+            entry_end_tag = "</entry>"
+            
+            start_pos = atom_xml.find(entry_pattern)
+            if start_pos == -1:
+                continue
+                
+            end_pos = atom_xml.find(entry_end_tag, start_pos)
+            if end_pos == -1:
+                continue
+            
+            # 在条目结束标签前插入自定义元素
+            custom_xml = "\n  " + "\n  ".join(elements)
+            atom_xml = atom_xml[:end_pos] + custom_xml + atom_xml[end_pos:]
         
         # 将字符串写入文件
         with open(output_path, 'w', encoding='utf-8') as f:
