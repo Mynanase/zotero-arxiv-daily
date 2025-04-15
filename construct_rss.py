@@ -89,73 +89,67 @@ def render_rss(papers: list[ArxivPaper], feed_title: str = "Daily arXiv Papers",
     return fg
 
 def save_rss(feed_generator, output_path: str = "public/index.xml"):
-    """保存 RSS Feed 到文件，使用 Atom 格式并添加自定义元素"""
+    """保存 RSS Feed 到文件，使用 Atom 格式并添加自定义元素
+    
+    添加的自定义元素：
+    - dc:source: 用于存储翻译标题，被 Zotero 识别为来源信息
+    - rights: 用于存储星级评分，被 Zotero 识别为权利信息
+    """
     try:
         # 确保目标目录存在
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         
-        # 首先生成标准的 Atom feed
+        # 生成标准的 Atom feed
         feed_generator.atom_file(output_path)
         
-        # 然后读取生成的文件
+        # 读取生成的文件
         with open(output_path, 'r', encoding='utf-8') as f:
             atom_xml = f.read()
         
-        # 添加 zotero 命名空间声明
-        if 'xmlns:zotero="http://zotero.org/ns/1.0/"' not in atom_xml:
-            atom_xml = atom_xml.replace('<feed ', '<feed xmlns:zotero="http://zotero.org/ns/1.0/" ')
+        # 添加 Dublin Core 命名空间声明
+        if 'xmlns:dc="http://purl.org/dc/elements/1.1/"' not in atom_xml:
+            atom_xml = atom_xml.replace('<feed ', '<feed xmlns:dc="http://purl.org/dc/elements/1.1/" ')
         
-        # 准备存储每个条目的自定义元素
-        custom_elements = {}
+        # 收集并添加自定义元素
+        modified = False
         
-        # 收集所有条目的自定义元素
         for entry in feed_generator.entry():
-            arxiv_id = entry.id().split('/')[-1]
             elements = []
+            arxiv_id = entry.id().split('/')[-1]
             
-            # 收集标题翻译
+            # 添加翻译标题（使用 dc:source）
             if hasattr(entry, '_translated_title') and entry._translated_title:
                 elements.append(f"<dc:source>{entry._translated_title}</dc:source>")
             
-            # 收集相关度分数
+            # 添加星级评分（使用 rights）
             if hasattr(entry, '_relevance_score') and entry._relevance_score is not None:
-                score = entry._relevance_score
-                star_count = get_star_rating(score)
+                star_count = get_star_rating(entry._relevance_score)
                 if star_count > 0:
-                    # 将星级数量转换为星星字符串
                     star_rating = "⭐" * star_count
                     elements.append(f"<rights>{star_rating}</rights>")
             
+            # 如果有自定义元素，插入到条目中
             if elements:
-                custom_elements[arxiv_id] = elements
-        
-        # 如果没有自定义元素要添加，直接返回
-        if not custom_elements:
-            logger.info(f"RSS feed saved to {output_path}")
-            return True
-        
-        # 对每个条目 ID 进行处理
-        for arxiv_id, elements in custom_elements.items():
-            # 定位条目
-            entry_pattern = f"<id>http://arxiv.org/abs/{arxiv_id}</id>"
-            entry_end_tag = "</entry>"
-            
-            start_pos = atom_xml.find(entry_pattern)
-            if start_pos == -1:
-                continue
+                modified = True
+                entry_pattern = f"<id>http://arxiv.org/abs/{arxiv_id}</id>"
+                entry_end_tag = "</entry>"
                 
-            end_pos = atom_xml.find(entry_end_tag, start_pos)
-            if end_pos == -1:
-                continue
-            
-            # 在条目结束标签前插入自定义元素
-            custom_xml = "\n  " + "\n  ".join(elements)
-            atom_xml = atom_xml[:end_pos] + custom_xml + atom_xml[end_pos:]
+                start_pos = atom_xml.find(entry_pattern)
+                if start_pos == -1:
+                    continue
+                
+                end_pos = atom_xml.find(entry_end_tag, start_pos)
+                if end_pos == -1:
+                    continue
+                
+                custom_xml = "\n  " + "\n  ".join(elements)
+                atom_xml = atom_xml[:end_pos] + custom_xml + atom_xml[end_pos:]
         
-        # 将字符串写入文件
-        with open(output_path, 'w', encoding='utf-8') as f:
-            f.write(atom_xml)
-            
+        # 如果有修改，将更新后的内容写回文件
+        if modified:
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write(atom_xml)
+        
         logger.info(f"RSS feed saved to {output_path}")
         return True
     except Exception as e:
