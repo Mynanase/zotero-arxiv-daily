@@ -58,10 +58,6 @@ def add_paper_to_feed(fg, paper: ArxivPaper):
     entry.id(f"http://arxiv.org/abs/{paper.arxiv_id}")
     entry.title(paper.title)
     
-    # 添加翻译后的标题（如果有）
-    if hasattr(paper, 'translated_title') and paper.translated_title:
-        entry.title(f"{paper.title} / {paper.translated_title}")
-    
     # 添加链接
     entry.link(href=f"http://arxiv.org/abs/{paper.arxiv_id}", rel="alternate")
     entry.link(href=paper.pdf_url, rel="related", type="application/pdf", title="PDF")
@@ -76,14 +72,36 @@ def add_paper_to_feed(fg, paper: ArxivPaper):
     # 摘要和内容
     entry.summary(paper.tldr)
     
+    # 添加翻译后的标题（如果有）
+    if hasattr(paper, 'translated_title') and paper.translated_title:
+        try:
+            # 尝试使用 feedgen 的扩展功能添加自定义元素
+            entry.titleTranslation = paper.translated_title
+        except AttributeError:
+            # 如果上述方法失败，使用扩展元素
+            entry.extend_entry([{
+                'name': 'titleTranslation',
+                'value': paper.translated_title
+            }])
+    
+    # 添加相关度信息（如果有）
+    if hasattr(paper, 'score') and paper.score is not None:
+        try:
+            # 尝试使用 feedgen 的扩展功能添加自定义元素
+            entry.relevanceScore = str(paper.score)
+        except AttributeError:
+            # 如果上述方法失败，使用扩展元素
+            entry.extend_entry([{
+                'name': 'relevanceScore',
+                'value': str(paper.score)
+            }])
+    
     # 发布和更新时间
-    # 使用当前时间，因为 ArxivPaper 类可能没有 published 属性
     current_time = datetime.datetime.now(datetime.timezone.utc)
     entry.published(current_time)
     entry.updated(current_time)
     
     # 分类信息
-    # ArxivPaper 类可能没有 categories 属性
     # 添加默认分类
     entry.category(term="astro-ph.GA")
     
