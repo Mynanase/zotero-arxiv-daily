@@ -3,6 +3,7 @@ from feedgen.feed import FeedGenerator
 import os
 import datetime
 from loguru import logger
+from utils import get_star_rating
 
 def create_feed_generator(
     title="ArXiv Daily Papers",
@@ -25,20 +26,20 @@ def create_feed_generator(
     
     # 添加必要的命名空间，使其与 arXiv 格式兼容
     # 注意：不同版本的 feedgen 库 API 可能不同
-    try:
-        # 尝试使用 register_ns 方法
-        fg.register_ns("dc", "http://purl.org/dc/elements/1.1/")
-        fg.register_ns("content", "http://purl.org/rss/1.0/modules/content/")
-    except AttributeError:
-        # 如果失败，尝试使用 namespaces 属性
-        try:
-            fg.namespaces.update({
-                'dc': 'http://purl.org/dc/elements/1.1/',
-                'content': 'http://purl.org/rss/1.0/modules/content/'
-            })
-        except AttributeError:
-            # 如果两种方法都失败，忽略命名空间注册
-            logger.warning("Could not register namespaces for RSS feed, some features may not work properly.")
+    # try:
+    #     # 尝试使用 register_ns 方法
+    #     fg.register_ns("dc", "http://purl.org/dc/elements/1.1/")
+    #     fg.register_ns("content", "http://purl.org/rss/1.0/modules/content/")
+    # except AttributeError:
+    #     # 如果失败，尝试使用 namespaces 属性
+    #     try:
+    #         fg.namespaces.update({
+    #             'dc': 'http://purl.org/dc/elements/1.1/',
+    #             'content': 'http://purl.org/rss/1.0/modules/content/'
+    #         })
+    #     except AttributeError:
+    #         # 如果两种方法都失败，忽略命名空间注册
+    #         logger.warning("Could not register namespaces for RSS feed, some features may not work properly.")
     
     # 设置最后更新时间（带时区信息）
     try:
@@ -72,9 +73,6 @@ def add_paper_to_feed(fg, paper: ArxivPaper):
     # 摘要和内容
     entry.summary(paper.tldr)
     
-    # 我们不在这里添加翻译和相关度信息
-    # 而是在 save_rss 函数中直接处理 XML
-    
     # 将翻译和相关度信息存储在条目的自定义属性中
     if hasattr(paper, 'translated_title') and paper.translated_title:
         entry._translated_title = paper.translated_title
@@ -83,9 +81,11 @@ def add_paper_to_feed(fg, paper: ArxivPaper):
         entry._relevance_score = paper.score
     
     # 发布和更新时间
-    current_time = datetime.datetime.now(datetime.timezone.utc)
-    entry.published(current_time)
-    entry.updated(current_time)
+    # 使用 arxiv API 返回的论文发布和更新时间
+    if hasattr(paper, 'updated'):
+        entry.updated(paper.updated)
+    else:
+        entry.updated(datetime.datetime.now(datetime.timezone.utc))
     
     # 分类信息
     # 添加默认分类
@@ -132,11 +132,19 @@ def save_rss(feed_generator, output_path: str = "public/index.xml"):
             
             # 收集标题翻译
             if hasattr(entry, '_translated_title') and entry._translated_title:
+                print(f"Adding translated title for {arxiv_id}: {entry._translated_title}")
                 elements.append(f"<zotero:titleTranslation>{entry._translated_title}</zotero:titleTranslation>")
             
             # 收集相关度分数
             if hasattr(entry, '_relevance_score') and entry._relevance_score is not None:
+                print(f"Adding relevance score for {arxiv_id}: {entry._relevance_score}")
                 elements.append(f"<zotero:relevanceScore>{entry._relevance_score}</zotero:relevanceScore>")
+                
+                # 添加星级评分
+                score = entry._relevance_score
+                star_rating = get_star_rating(score)
+                if star_rating:
+                    elements.append(f"<zotero:starRating>{star_rating}</zotero:starRating>")
             
             if elements:
                 custom_elements[arxiv_id] = elements

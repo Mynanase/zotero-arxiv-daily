@@ -96,7 +96,6 @@ def add_argument(*args, **kwargs):
             env_value = kwargs.get('type')(env_value)
         parser.set_defaults(**{arg_full_name:env_value})
 
-
 if __name__ == '__main__':
     
     add_argument('--zotero_id', type=str, help='Zotero user ID')

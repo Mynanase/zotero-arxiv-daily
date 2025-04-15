@@ -106,30 +106,22 @@ def get_block_html(title:str, authors:str, rate:str, arxiv_id:str, abstract:str,
 """
     return block_template.format(title_html=title_html, authors=authors, rate=rate, arxiv_id=arxiv_id, abstract=abstract, pdf_url=pdf_url, code=code, affiliations=affiliations)
 
-def get_stars(score:float):
-    full_star = '<span class="full-star">⭐</span>'
-    half_star = '<span class="half-star">⭐</span>'
-    low = 6
-    high = 8
-    if score <= low:
-        return ''
-    elif score >= high:
-        return full_star * 5
-    else:
-        interval = (high-low) / 10
-        star_num = math.ceil((score-low) / interval)
-        full_star_num = int(star_num/2)
-        half_star_num = star_num - full_star_num * 2
-        return '<div class="star-wrapper">'+full_star * full_star_num + half_star * half_star_num + '</div>'
-
-
 def render_email(papers:list[ArxivPaper]):
+    from utils import get_star_rating
+    
     parts = []
     if len(papers) == 0 :
         return framework.replace('__CONTENT__', get_empty_html())
     
     for p in tqdm(papers,desc='Rendering Email'):
-        rate = get_stars(p.score)
+        # 直接在这里获取星级评分并格式化
+        plain_stars = get_star_rating(p.score)
+        if plain_stars:
+            star_count = len(plain_stars)
+            full_star = '<span class="full-star">⭐</span>'
+            rate = '<div class="star-wrapper">' + full_star * star_count + '</div>'
+        else:
+            rate = ''
         authors = [a.name for a in p.authors[:5]]
         authors = ', '.join(authors)
         if len(p.authors) > 5:
