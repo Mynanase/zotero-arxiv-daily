@@ -114,12 +114,12 @@ def render_email(papers:list[ArxivPaper]):
         return framework.replace('__CONTENT__', get_empty_html())
     
     for p in tqdm(papers,desc='Rendering Email'):
-        # 直接在这里获取星级评分并格式化
-        plain_stars = get_star_rating(p.score)
-        if plain_stars:
-            star_count = len(plain_stars)
-            full_star = '<span class="full-star">⭐</span>'
-            rate = '<div class="star-wrapper">' + full_star * star_count + '</div>'
+        # 直接在这里获取星级评分数量并格式化
+        star_count = get_star_rating(p.score)
+        if star_count > 0:
+            # 将星级数量转换为 HTML 格式的星星
+            html_stars = ''.join([f'<span class="full-star">⭐</span>' for _ in range(star_count)])
+            rate = f'<div class="star-wrapper">{html_stars}</div>'
         else:
             rate = ''
         authors = [a.name for a in p.authors[:5]]

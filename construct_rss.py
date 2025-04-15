@@ -24,23 +24,6 @@ def create_feed_generator(
     if feed_url:
         fg.link(href=feed_url, rel="self")
     
-    # 添加必要的命名空间，使其与 arXiv 格式兼容
-    # 注意：不同版本的 feedgen 库 API 可能不同
-    # try:
-    #     # 尝试使用 register_ns 方法
-    #     fg.register_ns("dc", "http://purl.org/dc/elements/1.1/")
-    #     fg.register_ns("content", "http://purl.org/rss/1.0/modules/content/")
-    # except AttributeError:
-    #     # 如果失败，尝试使用 namespaces 属性
-    #     try:
-    #         fg.namespaces.update({
-    #             'dc': 'http://purl.org/dc/elements/1.1/',
-    #             'content': 'http://purl.org/rss/1.0/modules/content/'
-    #         })
-    #     except AttributeError:
-    #         # 如果两种方法都失败，忽略命名空间注册
-    #         logger.warning("Could not register namespaces for RSS feed, some features may not work properly.")
-    
     # 设置最后更新时间（带时区信息）
     try:
         # Python 3.9+ 使用 datetime.datetime.now().astimezone()
@@ -142,8 +125,10 @@ def save_rss(feed_generator, output_path: str = "public/index.xml"):
                 
                 # 添加星级评分
                 score = entry._relevance_score
-                star_rating = get_star_rating(score)
-                if star_rating:
+                star_count = get_star_rating(score)
+                if star_count > 0:
+                    # 将星级数量转换为星星字符串
+                    star_rating = "⭐" * star_count
                     elements.append(f"<zotero:starRating>{star_rating}</zotero:starRating>")
             
             if elements:
