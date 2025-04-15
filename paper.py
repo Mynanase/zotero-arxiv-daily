@@ -41,8 +41,10 @@ class ArxivPaper:
         
         # Skip translation if target language is already English
         if target_lang.lower() == source_lang.lower():
+            logger.debug(f"Skipping translation as target language ({target_lang}) is the same as source language ({source_lang})")
             return None
             
+        logger.info(f"Translating title from {source_lang} to {target_lang}: {self.title}")
         prompt = f"""Translate the following academic paper title from {source_lang} to {target_lang}. Focus on accurately conveying technical terminology and maintaining the academic style. 
         Title: {self.title}
         Translation:"""       

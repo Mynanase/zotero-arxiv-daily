@@ -64,8 +64,8 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_API_BASE: ${{ vars.OPENAI_API_BASE }}
           MODEL_NAME: ${{ vars.MODEL_NAME }}
-          LANGUAGE: ${{ vars.LANGUAGE }}
-          TRANSLATE_TITLE: ${{ vars.TRANSLATE_TITLE }}
+          LANGUAGE: ${{ vars.LANGUAGE || 'English' }}
+          TRANSLATE_TITLE: ${{ vars.TRANSLATE_TITLE || 'false' }}
           # RSS feed 相关配置
           GENERATE_RSS: 'true'
           RSS_OUTPUT: 'public/index.xml'
