@@ -115,21 +115,16 @@ def save_rss(feed_generator, output_path: str = "public/index.xml"):
             
             # 收集标题翻译
             if hasattr(entry, '_translated_title') and entry._translated_title:
-                print(f"Adding translated title for {arxiv_id}: {entry._translated_title}")
-                elements.append(f"<zotero:titleTranslation>{entry._translated_title}</zotero:titleTranslation>")
+                elements.append(f"<dc:source>{entry._translated_title}</dc:source>")
             
             # 收集相关度分数
             if hasattr(entry, '_relevance_score') and entry._relevance_score is not None:
-                print(f"Adding relevance score for {arxiv_id}: {entry._relevance_score}")
-                elements.append(f"<zotero:relevanceScore>{entry._relevance_score}</zotero:relevanceScore>")
-                
-                # 添加星级评分
                 score = entry._relevance_score
                 star_count = get_star_rating(score)
                 if star_count > 0:
                     # 将星级数量转换为星星字符串
                     star_rating = "⭐" * star_count
-                    elements.append(f"<zotero:starRating>{star_rating}</zotero:starRating>")
+                    elements.append(f"<rights>{star_rating}</rights>")
             
             if elements:
                 custom_elements[arxiv_id] = elements
