@@ -3,7 +3,7 @@ name: Send emails and deploy RSS daily
 on:
   # 每天定时运行
   schedule:
-    - cron: '0 22 * * *'
+    - cron: '0 14 * * *'  # UTC 14:00 = 北京时间 22:00
   
   # 允许手动触发
   workflow_dispatch:
