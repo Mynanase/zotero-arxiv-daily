@@ -29,12 +29,15 @@ def create_feed_generator(
         # 尝试使用 register_ns 方法
         fg.register_ns("dc", "http://purl.org/dc/elements/1.1/")
         fg.register_ns("content", "http://purl.org/rss/1.0/modules/content/")
+        # 添加自定义命名空间用于标题翻译和相关度
+        fg.register_ns("zotero", "http://zotero.org/ns/1.0/")
     except AttributeError:
         # 如果失败，尝试使用 namespaces 属性
         try:
             fg.namespaces.update({
                 'dc': 'http://purl.org/dc/elements/1.1/',
-                'content': 'http://purl.org/rss/1.0/modules/content/'
+                'content': 'http://purl.org/rss/1.0/modules/content/',
+                'zotero': 'http://zotero.org/ns/1.0/'
             })
         except AttributeError:
             # 如果两种方法都失败，忽略命名空间注册
@@ -75,26 +78,34 @@ def add_paper_to_feed(fg, paper: ArxivPaper):
     # 添加翻译后的标题（如果有）
     if hasattr(paper, 'translated_title') and paper.translated_title:
         try:
-            # 尝试使用 feedgen 的扩展功能添加自定义元素
-            entry.titleTranslation = paper.translated_title
-        except AttributeError:
+            # 使用 lxml 直接添加元素
+            entry.zotero__titleTranslation(paper.translated_title)
+        except (AttributeError, TypeError):
             # 如果上述方法失败，使用扩展元素
-            entry.extend_entry([{
-                'name': 'titleTranslation',
-                'value': paper.translated_title
-            }])
+            try:
+                entry.extend_entry([{
+                    'name': 'zotero:titleTranslation',
+                    'value': paper.translated_title
+                }])
+            except (AttributeError, TypeError):
+                # 如果上述方法也失败，尝试使用另一种方式
+                logger.warning(f"Could not add title translation for paper {paper.arxiv_id}")
     
     # 添加相关度信息（如果有）
     if hasattr(paper, 'score') and paper.score is not None:
         try:
-            # 尝试使用 feedgen 的扩展功能添加自定义元素
-            entry.relevanceScore = str(paper.score)
-        except AttributeError:
+            # 使用 lxml 直接添加元素
+            entry.zotero__relevanceScore(str(paper.score))
+        except (AttributeError, TypeError):
             # 如果上述方法失败，使用扩展元素
-            entry.extend_entry([{
-                'name': 'relevanceScore',
-                'value': str(paper.score)
-            }])
+            try:
+                entry.extend_entry([{
+                    'name': 'zotero:relevanceScore',
+                    'value': str(paper.score)
+                }])
+            except (AttributeError, TypeError):
+                # 如果上述方法也失败，尝试使用另一种方式
+                logger.warning(f"Could not add relevance score for paper {paper.arxiv_id}")
     
     # 发布和更新时间
     current_time = datetime.datetime.now(datetime.timezone.utc)
@@ -120,13 +131,23 @@ def render_rss(papers: list[ArxivPaper], feed_title: str = "Daily arXiv Papers",
     return fg
 
 def save_rss(feed_generator, output_path: str = "public/index.xml"):
-    """保存 RSS Feed 到文件，使用 Atom 格式"""
+    """保存 RSS Feed 到文件，使用 Atom 格式并确保自定义元素正确输出"""
     try:
         # 确保目标目录存在
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         
-        # 使用 atom_file 而不是 rss_file，生成 Atom 格式的 feed
-        feed_generator.atom_file(output_path)
+        # 生成 Atom 格式的 feed XML
+        atom_str = feed_generator.atom_str(pretty=True)
+        atom_xml = atom_str.decode('utf-8')
+        
+        # 添加 zotero 命名空间声明（如果还没有）
+        if 'xmlns:zotero="http://zotero.org/ns/1.0/"' not in atom_xml:
+            atom_xml = atom_xml.replace('<feed ', '<feed xmlns:zotero="http://zotero.org/ns/1.0/" ')
+        
+        # 将字符串写入文件
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write(atom_xml)
+            
         logger.info(f"RSS feed saved to {output_path}")
         return True
     except Exception as e:
