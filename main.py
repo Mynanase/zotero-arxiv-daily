@@ -47,20 +47,48 @@ def filter_corpus(corpus:list[dict], pattern:str) -> list[dict]:
     return new_corpus
 
 def get_arxiv_paper(query:str, debug:bool=False) -> list[ArxivPaper]:
+    from datetime import datetime, timedelta, timezone
+    
     client = arxiv.Client(num_retries=10,delay_seconds=10)
-    feed = feedparser.parse(f"https://rss.arxiv.org/atom/{query}")
-    if 'Feed error for query' in feed.feed.title:
-        raise Exception(f"Invalid ARXIV_QUERY: {query}.")
+    
     if not debug:
+        # 确定当前日期和arXiv发布日期
+        now = datetime.now(timezone.utc)
+        arxiv_cutoff_hour = 20  # UTC 20:00 (晚上8点)
+        
+        # 如果当前时间已经过了UTC 20:00，则获取"明天"的论文
+        # 否则获取"今天"的论文
+        if now.hour >= arxiv_cutoff_hour:
+            logger.info("当前时间已过UTC 20:00，获取下一个发布周期的论文")
+            # 这里不需要特殊处理，因为RSS feed已经包含了最新的发布
+        else:
+            logger.info("当前时间在UTC 20:00之前，获取当前发布周期的论文")
+        
+        # 获取RSS feed
+        feed = feedparser.parse(f"https://rss.arxiv.org/atom/{query}")
+        if 'Feed error for query' in feed.feed.title:
+            raise Exception(f"Invalid ARXIV_QUERY: {query}.")
+        
+        # 只获取标记为'new'的论文
         papers = []
         all_paper_ids = [i.id.removeprefix("oai:arXiv.org:") for i in feed.entries if i.arxiv_announce_type == 'new']
-        bar = tqdm(total=len(all_paper_ids),desc="Retrieving Arxiv papers")
-        for i in range(0,len(all_paper_ids),50):
+        
+        if len(all_paper_ids) == 0:
+            logger.info("RSS feed中没有找到标记为'new'的论文")
+            return papers
+            
+        logger.info(f"在RSS feed中找到 {len(all_paper_ids)} 篇标记为'new'的论文")
+        
+        # 批量获取论文详情
+        bar = tqdm(total=len(all_paper_ids), desc="Retrieving Arxiv papers")
+        for i in range(0, len(all_paper_ids), 50):
             search = arxiv.Search(id_list=all_paper_ids[i:i+50])
             batch = [ArxivPaper(p) for p in client.results(search)]
             bar.update(len(batch))
             papers.extend(batch)
         bar.close()
+        
+        logger.info(f"成功获取 {len(papers)} 篇论文详情")
 
     else:
         logger.debug("Retrieve 3 arxiv papers regardless of the date.")
