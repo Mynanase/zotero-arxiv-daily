@@ -143,17 +143,17 @@ def get_embedding_provider(
         if api_key:
             logger.info("Using embedding API key from environment variable")
     
-    # 从环境变量中获取API基础URL（如果未提供）
-    env_api_base = os.environ.get('EMBEDDING_API_BASE')
-    if env_api_base:
-        api_base = env_api_base
-        logger.info(f"Using embedding API base from environment variable: {api_base}")
+        # 从环境变量中获取API基础URL（如果未提供）
+        env_api_base = os.environ.get('EMBEDDING_API_BASE')
+        if env_api_base:
+            api_base = env_api_base
+            logger.info(f"Using embedding API base from environment variable: {api_base}")
     
-    # 从环境变量中获取API模型（如果未提供）
-    env_api_model = os.environ.get('EMBEDDING_MODEL')
-    if env_api_model:
-        api_model = env_api_model
-        logger.info(f"Using embedding model from environment variable: {api_model}")
+        # 从环境变量中获取API模型（如果未提供）
+        env_api_model = os.environ.get('EMBEDDING_MODEL')
+        if env_api_model:
+            api_model = env_api_model
+            logger.info(f"Using embedding model from environment variable: {api_model}")
     
     # 从环境变量中获取本地模型（如果未提供）
     env_local_model = os.environ.get('LOCAL_VECTORIZATION_MODEL')
@@ -233,7 +233,7 @@ def rerank_paper(
         
         # Assign scores to candidate papers
         for s, c in zip(scores, candidate):
-            logger.info(f"Paper {c.title} - Score: {s:.6f}")
+            logger.debug(f"Paper {c.title} - Score: {s:.6f}")
             c.score = s.item()
         
         # Sort papers by score in descending order
