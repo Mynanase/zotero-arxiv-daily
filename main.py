@@ -16,22 +16,54 @@ from paper import ArxivPaper
 from llm import set_global_llm
 import feedparser
 from construct_rss import render_rss, save_rss
-
-def get_zotero_corpus(id:str,key:str) -> list[dict]:
+def get_zotero_corpus(id:str, key:str, max_retries:int=3, retry_delay:int=5) -> list[dict]:
+    import time
+    import requests
+    from requests.exceptions import SSLError, ConnectionError, Timeout
+    
+    # Initialize Zotero client
     zot = zotero.Zotero(id, 'user', key)
-    collections = zot.everything(zot.collections())
-    collections = {c['key']:c for c in collections}
-    corpus = zot.everything(zot.items(itemType='conferencePaper || journalArticle || preprint'))
-    corpus = [c for c in corpus if c['data']['abstractNote'] != '']
-    def get_collection_path(col_key:str) -> str:
-        if p := collections[col_key]['data']['parentCollection']:
-            return get_collection_path(p) + '/' + collections[col_key]['data']['name']
-        else:
-            return collections[col_key]['data']['name']
-    for c in corpus:
-        paths = [get_collection_path(col) for col in c['data']['collections']]
-        c['paths'] = paths
-    return corpus
+    
+    # Function to perform API call with retries
+    def call_with_retry(func, *args, **kwargs):
+        for attempt in range(max_retries):
+            try:
+                return func(*args, **kwargs)
+            except (SSLError, ConnectionError, Timeout) as e:
+                if attempt < max_retries - 1:
+                    wait_time = retry_delay * (2 ** attempt)  # Exponential backoff
+                    logger.warning(f"Zotero API connection error: {str(e)}. Retrying in {wait_time} seconds... (Attempt {attempt+1}/{max_retries})")
+                    time.sleep(wait_time)
+                else:
+                    logger.error(f"Failed to connect to Zotero API after {max_retries} attempts: {str(e)}")
+                    raise
+    
+    # Get collections with retry logic
+    try:
+        logger.info("Retrieving Zotero collections...")
+        collections = call_with_retry(zot.everything, zot.collections())
+        collections = {c['key']:c for c in collections}
+        
+        # Get items with retry logic
+        logger.info("Retrieving Zotero items...")
+        corpus = call_with_retry(zot.everything, zot.items(itemType='conferencePaper || journalArticle || preprint'))
+        corpus = [c for c in corpus if c['data']['abstractNote'] != '']
+        
+        # Process collection paths
+        def get_collection_path(col_key:str) -> str:
+            if p := collections[col_key]['data']['parentCollection']:
+                return get_collection_path(p) + '/' + collections[col_key]['data']['name']
+            else:
+                return collections[col_key]['data']['name']
+        
+        for c in corpus:
+            paths = [get_collection_path(col) for col in c['data']['collections']]
+            c['paths'] = paths
+            
+        return corpus
+    except Exception as e:
+        logger.error(f"Error retrieving Zotero corpus: {str(e)}")
+        raise
 
 def filter_corpus(corpus:list[dict], pattern:str) -> list[dict]:
     _,filename = mkstemp()
@@ -56,13 +88,15 @@ def get_arxiv_paper(query:str, debug:bool=False) -> list[ArxivPaper]:
         now = datetime.now(timezone.utc)
         arxiv_cutoff_hour = 20  # UTC 20:00 (晚上8点)
         
-        # 如果当前时间已经过了UTC 20:00，则获取"明天"的论文
-        # 否则获取"今天"的论文
+        # 根据当前时间决定获取哪一天的论文
         if now.hour >= arxiv_cutoff_hour:
-            logger.info("当前时间已过UTC 20:00，获取下一个发布周期的论文")
-            # 这里不需要特殊处理，因为RSS feed已经包含了最新的发布
+            # 如果当前时间已过UTC 20:00，获取当天的论文
+            target_date = now.date()
+            logger.info(f"当前时间已过UTC 20:00，获取{target_date}的论文")
         else:
-            logger.info("当前时间在UTC 20:00之前，获取当前发布周期的论文")
+            # 如果当前时间在UTC 20:00之前，获取前一天的论文
+            target_date = (now - timedelta(days=1)).date()
+            logger.info(f"当前时间在UTC 20:00之前，获取{target_date}的论文")
         
         # 获取RSS feed
         feed = feedparser.parse(f"https://rss.arxiv.org/atom/{query}")
@@ -81,14 +115,30 @@ def get_arxiv_paper(query:str, debug:bool=False) -> list[ArxivPaper]:
         
         # 批量获取论文详情
         bar = tqdm(total=len(all_paper_ids), desc="Retrieving Arxiv papers")
+        all_papers = []
         for i in range(0, len(all_paper_ids), 50):
             search = arxiv.Search(id_list=all_paper_ids[i:i+50])
             batch = [ArxivPaper(p) for p in client.results(search)]
             bar.update(len(batch))
-            papers.extend(batch)
+            all_papers.extend(batch)
         bar.close()
         
-        logger.info(f"成功获取 {len(papers)} 篇论文详情")
+        logger.info(f"成功获取 {len(all_papers)} 篇论文详情")
+        
+        # 根据目标日期筛选论文
+        target_date_str = target_date.strftime("%Y-%m-%d")
+        papers = []
+        for paper in all_papers:
+            # 获取论文发布日期
+            paper_date = paper.updated.date()
+            print(paper_date)
+            paper_date_str = paper_date.strftime("%Y-%m-%d")
+            
+            # 只保留目标日期发布的论文
+            if paper_date_str == target_date_str:
+                papers.append(paper)
+        
+        logger.info(f"筛选出 {len(papers)} 篇 {target_date_str} 发布的论文")
 
     else:
         logger.debug("Retrieve 3 arxiv papers regardless of the date.")
