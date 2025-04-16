@@ -27,6 +27,10 @@ class ArxivPaper:
     def updated(self):
         return self._paper.updated
     
+    @property
+    def published(self):
+        return self._paper.published
+    
     @cached_property
     def translated_title(self) -> Optional[str]:
         """Translate the paper title to the language specified in LLM configuration"""
