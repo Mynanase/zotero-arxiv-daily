@@ -1,5 +1,3 @@
-import math
-
 def get_star_rating(score: float) -> int:
     """将相关度分数转换为星级评分数量
     
@@ -9,10 +7,8 @@ def get_star_rating(score: float) -> int:
     Returns:
         int: 星级数量，0-5之间的整数，0表示不显示星级
     """
-    mean = 4.5
-    half = 1
-    low = mean - half  # 最低分数阈值
-    high = mean + half  # 最高分数阈值
+    low = 4.4927  # 20%分位数
+    high = 5.0467  # 90%分位数
     
     if score <= low:
         return 0  # 不显示星级
