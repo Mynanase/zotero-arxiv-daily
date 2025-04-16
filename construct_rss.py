@@ -69,6 +69,11 @@ def add_paper_to_feed(fg, paper: ArxivPaper):
         entry.updated(paper.updated)
     else:
         entry.updated(datetime.datetime.now(datetime.timezone.utc))
+
+    if hasattr(paper, 'published'):
+        entry.published(paper.published)
+    else:
+        entry.published(datetime.datetime.now(datetime.timezone.utc))
     
     # 分类信息
     # 添加默认分类
