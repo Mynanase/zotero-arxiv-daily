@@ -85,19 +85,13 @@ def get_arxiv_paper(query:str, debug:bool=False) -> list[ArxivPaper]:
     
     if not debug:
         # 确定当前日期和arXiv发布日期
-        now = datetime.now(timezone.utc)
-        arxiv_cutoff_hour = 20  # UTC 20:00 (晚上8点)
-        
-        # 根据当前时间决定获取哪一天的论文
-        if now.hour >= arxiv_cutoff_hour:
-            # 如果当前时间已过UTC 20:00，获取当天的论文
-            target_date = now.date()
-            logger.info(f"当前时间已过UTC 20:00，获取{target_date}的论文")
-        else:
-            # 如果当前时间在UTC 20:00之前，获取前一天的论文
-            target_date = (now - timedelta(days=1)).date()
-            logger.info(f"当前时间在UTC 20:00之前，获取{target_date}的论文")
-        
+        # 使用纽约时间（美国东部时间）
+        import zoneinfo
+        ny_timezone = zoneinfo.ZoneInfo("America/New_York")
+        now = datetime.now(ny_timezone).strftime("%Y-%m-%d")
+        target_date = (datetime.now(ny_timezone) - timedelta(days=1)).strftime("%Y-%m-%d")
+        print(f"New York time: {now}")
+
         # 获取RSS feed
         feed = feedparser.parse(f"https://rss.arxiv.org/atom/{query}")
         if 'Feed error for query' in feed.feed.title:
@@ -126,19 +120,17 @@ def get_arxiv_paper(query:str, debug:bool=False) -> list[ArxivPaper]:
         logger.info(f"成功获取 {len(all_papers)} 篇论文详情")
         
         # 根据目标日期筛选论文
-        target_date_str = target_date.strftime("%Y-%m-%d")
         papers = []
         for paper in all_papers:
             # 获取论文发布日期
             paper_date = paper.updated.date()
-            print(paper_date)
             paper_date_str = paper_date.strftime("%Y-%m-%d")
             
             # 只保留目标日期发布的论文
-            if paper_date_str == target_date_str:
+            if paper_date_str == target_date:
                 papers.append(paper)
         
-        logger.info(f"筛选出 {len(papers)} 篇 {target_date_str} 发布的论文")
+        logger.info(f"筛选出 {len(papers)} 篇 {target_date} 发布的论文")
 
     else:
         logger.debug("Retrieve 3 arxiv papers regardless of the date.")
