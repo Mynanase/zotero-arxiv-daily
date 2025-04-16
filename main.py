@@ -175,6 +175,36 @@ if __name__ == '__main__':
         help="Translate paper titles to the specified language",
         default=False,
     )
+    add_argument(
+        "--use_embedding_api",
+        type=bool,
+        help="Use embedding API instead of local sentence transformer model",
+        default=False,
+    )
+    add_argument(
+        "--embedding_api_key",
+        type=str,
+        help="API key for embedding API (required when use_embedding_api is True)",
+        default=None,
+    )
+    add_argument(
+        "--embedding_api_base",
+        type=str,
+        help="Base URL for embedding API",
+        default="https://api.openai.com/v1",
+    )
+    add_argument(
+        "--embedding_model",
+        type=str,
+        help="Embedding model name to use with the API",
+        default="text-embedding-3-small",
+    )
+    add_argument(
+        "--local_vectorization_model",
+        type=str,
+        help="Local sentence transformer model name or path (used when use_embedding_api is False)",
+        default="avsolatorio/GIST-small-Embedding-v0",
+    )
     parser.add_argument('--debug', action='store_true', help='Debug mode')
     args = parser.parse_args()
     assert (
@@ -203,7 +233,15 @@ if __name__ == '__main__':
           exit(0)
     else:
         logger.info("Reranking papers...")
-        papers = rerank_paper(papers, corpus)
+        papers = rerank_paper(
+            papers, 
+            corpus, 
+            use_embedding_api=args.use_embedding_api,
+            embedding_api_key=args.embedding_api_key,
+            embedding_api_base=args.embedding_api_base,
+            embedding_model=args.embedding_model,
+            local_vectorization_model=args.local_vectorization_model
+        )
         if args.max_paper_num != -1:
             papers = papers[:args.max_paper_num]
         if args.use_llm_api:

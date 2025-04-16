@@ -63,6 +63,12 @@ jobs:
           MODEL_NAME: ${{ vars.MODEL_NAME }}
           LANGUAGE: ${{ vars.LANGUAGE || 'English' }}
           TRANSLATE_TITLE: ${{ vars.TRANSLATE_TITLE || 'false' }}
+          # 向量化模型相关配置
+          USE_EMBEDDING_API: ${{ vars.USE_EMBEDDING_API || 'false' }}
+          EMBEDDING_API_KEY: ${{ secrets.EMBEDDING_API_KEY }}
+          EMBEDDING_API_BASE: ${{ vars.EMBEDDING_API_BASE || 'https://api.openai.com/v1' }}
+          EMBEDDING_MODEL: ${{ vars.EMBEDDING_MODEL || 'text-embedding-3-small' }}
+          LOCAL_VECTORIZATION_MODEL: ${{ vars.LOCAL_VECTORIZATION_MODEL || 'avsolatorio/GIST-small-Embedding-v0' }}
           # RSS feed 相关配置
           GENERATE_RSS: 'true'
           RSS_OUTPUT: 'public/index.xml'
