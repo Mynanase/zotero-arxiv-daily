@@ -7,7 +7,7 @@ email:
   sender: ${oc.env:SENDER}
   receiver: ${oc.env:RECEIVER}
   receivers: null
-  smtp_server: smtp.qq.com
+  smtp_server: smtp.gmail.com
   smtp_port: 465
   smtp_security: ${oc.env:SMTP_SECURITY,ssl}
   sender_password: ${oc.env:SENDER_PASSWORD}

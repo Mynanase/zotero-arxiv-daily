@@ -70,8 +70,8 @@ Below are all the secrets you need to set. They are invisible to anyone includin
 | :---  | :---  | :--- |
 | ZOTERO_ID  | User ID of your Zotero account. **User ID is not your username, but a sequence of numbers**Get your ID from [here](https://www.zotero.org/settings/security). You can find it at the position shown in this [screenshot](https://github.com/TideDra/zotero-arxiv-daily/blob/main/assets/userid.png). | 12345678  |
 | ZOTERO_KEY | An Zotero API key with read access. Get a key from [here](https://www.zotero.org/settings/security).  | AB5tZ877P2j7Sm2Mragq041H   |
-| SENDER | The email account of the SMTP server that sends you email. | abc@qq.com |
-| SENDER_PASSWORD | The password of the sender account. Note that it's not necessarily the password for logging in the e-mail client, but the authentication code for SMTP service. Ask your email provider for this.   | abcdefghijklmn |
+| SENDER | The Gmail account that sends the digest. | abc@gmail.com |
+| SENDER_PASSWORD | A 16-character Google App Password. Do not use the normal Google Account password. | abcdefghijklmnop |
 | RECEIVER | One e-mail address, or a comma-separated list, that receives the paper list. | abc@outlook.com |
 | SCIX_API_TOKEN | Personal SciX API token. An existing ADS token continues to work; copy it from your [SciX account](https://scixplorer.org/scixhelp/userpreferences-scix/scix-account). Never place it in `CUSTOM_CONFIG` or commit it. | `...` |
 | ADS_API_TOKEN | Optional legacy secret. The workflows fall back to it, so existing forks do not need to rotate or rename their token immediately. | `...` |
@@ -82,7 +82,9 @@ Below are all the secrets you need to set. They are invisible to anyone includin
 
 ### SMTP security
 
-SMTP transport is always encrypted. Set the non-secret repository variable `SMTP_SECURITY` to `ssl` for implicit TLS (normally port `465`) or `starttls` for STARTTLS (normally port `587`). The checked-in QQ configuration uses `ssl`. Legacy configurations that omit the setting infer `ssl` for port 465 and `starttls` otherwise, and emit a warning; there is no plaintext fallback.
+SMTP transport is always encrypted. Set the non-secret repository variable `SMTP_SECURITY` to `ssl` for implicit TLS (normally port `465`) or `starttls` for STARTTLS (normally port `587`). The checked-in Gmail configuration uses `ssl` with port `465`. Legacy configurations that omit the setting infer `ssl` for port 465 and `starttls` otherwise, and emit a warning; there is no plaintext fallback.
+
+For Gmail, [enable 2-Step Verification](https://support.google.com/accounts/answer/185839), [create an App Password](https://support.google.com/accounts/answer/185833) for this project, and store that 16-character value (without spaces) in the `SENDER_PASSWORD` Actions secret. Store the full Gmail address in `SENDER`; never store the normal Google Account password in GitHub. If the repository variable `CUSTOM_CONFIG` is set, make sure its email block also uses `smtp.gmail.com`, port `465`, and `ssl`, because `CUSTOM_CONFIG` replaces the checked-in file during a workflow run.
 
 ### DeepSeek API
 
@@ -108,7 +110,7 @@ zotero:
 email:
   sender: ${oc.env:SENDER}
   receiver: ${oc.env:RECEIVER}
-  smtp_server: smtp.qq.com
+  smtp_server: smtp.gmail.com
   smtp_port: 465
   smtp_security: ${oc.env:SMTP_SECURITY,ssl}
   sender_password: ${oc.env:SENDER_PASSWORD}
@@ -183,13 +185,13 @@ source:
     include_new_versions: false # Whether to include revised versions (v2, v3, ...) of previously posted chemrxiv preprints in addition to new first postings. chemrxiv has no category filter: all new preprints (a few dozen per day) are retrieved via Crossref and left to the reranker. Example: true
 
 email:
-  sender: ??? # The email account of the SMTP server that sends you email. Example: abc@qq.com
+  sender: ??? # The Gmail account that sends you email. Example: abc@gmail.com
   receivers: null # Preferred list form. Example: [abc@outlook.com, lab@example.edu]
   receiver: ??? # Backward-compatible single or comma-separated receiver string.
-  smtp_server: ??? # The SMTP server that sends the email. Ask your email provider (Gmail, QQ, Outlook, ...) for its SMTP server. Example: smtp.qq.com
+  smtp_server: ??? # The SMTP server that sends the email. Gmail uses smtp.gmail.com.
   smtp_port: ??? # The port of SMTP server. Example: 465
   smtp_security: null # ssl or starttls. Omission/null infers ssl for port 465 and starttls otherwise, with a warning.
-  sender_password: ??? # The password of the sender account. Note that it's not necessarily the password for logging in the e-mail client, but the authentication code for SMTP service. Ask your email provider for this. Example: abcdefghijklmn
+  sender_password: ??? # For Gmail, use a 16-character Google App Password, not the normal account password.
 
 llm:
   api:
