@@ -77,6 +77,13 @@ Below are all the secrets you need to set. They are invisible to anyone includin
 | ADS_API_TOKEN | Optional legacy secret. The workflows fall back to it, so existing forks do not need to rotate or rename their token immediately. | `...` |
 | OPENAI_API_KEY | API key for any OpenAI-compatible LLM provider, including DeepSeek, OpenRouter, and SiliconFlow. | sk-xxx |
 
+> [!WARNING]
+> Revoke and regenerate any SciX/ADS token that has ever been pasted into a chat, issue, log, or committed file before the next run. Store the replacement only as the `SCIX_API_TOKEN` GitHub Actions secret; never commit token values or place them in `CUSTOM_CONFIG`.
+
+### SMTP security
+
+SMTP transport is always encrypted. Set the non-secret repository variable `SMTP_SECURITY` to `ssl` for implicit TLS (normally port `465`) or `starttls` for STARTTLS (normally port `587`). The checked-in QQ configuration uses `ssl`. Legacy configurations that omit the setting infer `ssl` for port 465 and `starttls` otherwise, and emit a warning; there is no plaintext fallback.
+
 ### DeepSeek API
 
 [DeepSeek uses an OpenAI-compatible Chat Completions API](https://api-docs.deepseek.com/guides/function_calling), so no provider-specific adapter is required. Store the DeepSeek key in the existing `OPENAI_API_KEY` secret and configure these repository variables:
@@ -103,6 +110,7 @@ email:
   receiver: ${oc.env:RECEIVER}
   smtp_server: smtp.qq.com
   smtp_port: 465
+  smtp_security: ${oc.env:SMTP_SECURITY,ssl}
   sender_password: ${oc.env:SENDER_PASSWORD}
 
 llm:
@@ -180,6 +188,7 @@ email:
   receiver: ??? # Backward-compatible single or comma-separated receiver string.
   smtp_server: ??? # The SMTP server that sends the email. Ask your email provider (Gmail, QQ, Outlook, ...) for its SMTP server. Example: smtp.qq.com
   smtp_port: ??? # The port of SMTP server. Example: 465
+  smtp_security: null # ssl or starttls. Omission/null infers ssl for port 465 and starttls otherwise, with a warning.
   sender_password: ??? # The password of the sender account. Note that it's not necessarily the password for logging in the e-mail client, but the authentication code for SMTP service. Ask your email provider for this. Example: abcdefghijklmn
 
 llm:
@@ -228,13 +237,15 @@ That's all! Now you can test the workflow by manually triggering it:
 ![test](./assets/test.png)
 
 > [!NOTE]
-> The Test-Workflow Action runs the same configured source in debug mode and limits the digest to five papers. A successful scheduled SciX run updates a private GitHub Actions cache; a missing cursor is treated as a first run.
+> The Test-Workflow Action runs the same configured source in debug mode and limits the digest to five papers. A successful scheduled SciX run updates a GitHub Actions delivery-state cache; a missing cursor is treated as a first run. Actions cache is neither durable nor confidential storage: entries not accessed for seven days can be evicted, the repository cache is limited to 10 GB, and cache contents may be readable by workflows associated with pull requests. Keep `.runtime/state/ads.json` small, store no secrets in it, and do not use it as an audit database.
 
 Then check the log and the receiver email after it finishes.
 
-By default, the main workflow runs at 14:00 UTC (22:00 Asia/Shanghai) every day. You can change this time by editing `.github/workflows/main.yml`.
+By default, the main workflow runs at 14:17 UTC (22:17 Asia/Shanghai) every day. The non-zero minute avoids the busiest part of GitHub's scheduler. You can change this time by editing `.github/workflows/main.yml`.
 
-Enable **Settings → Pages → Build and deployment → GitHub Actions** once. The workflow publishes only `public/index.xml`. The SciX delivery cursor stays at the compatibility path `.runtime/state/ads.json`, is restored through the private Actions cache, and is neither committed nor deployed to Pages.
+Enable **Settings → Pages → Build and deployment → GitHub Actions** once. The workflow publishes only `public/index.xml`. The SciX delivery cursor stays at the compatibility path `.runtime/state/ads.json`, is restored through Actions cache, and is neither committed nor deployed to Pages. The cache is operational state, not a place for credentials or confidential data.
+
+GitHub Actions is the supported deployment for this daily batch job; Docker/server deployment is intentionally deferred. Reconsider a new container implementation only when schedule precision must be under 15 minutes, Actions misses or delays at least two runs by more than two hours during a 14-day observation, an A/B test proves provider connectivity works from the server but repeatedly fails from hosted runners, runtime exceeds three hours or cache approaches 10 GB, or stronger persistence/privacy is required. Do not restore the deleted historical Dockerfile; see [the deployment policy](./docs/scix-customization.md#deployment-policy).
 
 ### Local Running
 Supported by [uv](https://github.com/astral-sh/uv), this workflow can easily run on your local device if uv is installed:

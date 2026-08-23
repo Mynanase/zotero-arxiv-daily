@@ -122,9 +122,24 @@ class TestGlobMatch:
 
 
 def test_send_email_starttls_success(config, monkeypatch):
+    from omegaconf import open_dict
+
+    with open_dict(config):
+        config.email.smtp_security = "starttls"
     sent = []
-    monkeypatch.setattr(smtplib, "SMTP", make_stub_smtp(sent))
+    calls = []
+
+    class StubSMTP(make_stub_smtp(sent)):
+        def starttls(self):
+            calls.append("starttls")
+
+    def unexpected_ssl(*args, **kwargs):
+        raise AssertionError("SMTP_SSL must not be used in starttls mode")
+
+    monkeypatch.setattr(smtplib, "SMTP", StubSMTP)
+    monkeypatch.setattr(smtplib, "SMTP_SSL", unexpected_ssl)
     send_email(config, "<html>hello</html>")
+    assert calls == ["starttls"]
     assert len(sent) == 1
     sender, recipients, body = sent[0]
     assert sender == "test@example.com"
@@ -133,56 +148,176 @@ def test_send_email_starttls_success(config, monkeypatch):
     assert "text/html" in body
 
 
-def test_send_email_falls_back_to_ssl(config, monkeypatch):
+def test_send_email_ssl_success(config, monkeypatch):
+    from omegaconf import open_dict
+
+    with open_dict(config):
+        config.email.smtp_security = "ssl"
     sent = []
-    call_count = {"smtp": 0}
+    calls = []
 
-    StubOK = make_stub_smtp(sent)
+    class StubSMTPSSL(make_stub_smtp(sent)):
+        def __init__(self, *args, **kwargs):
+            calls.append("ssl")
 
-    class StubSMTP_TLS_Fails:
-        def __init__(self, *a, **kw):
-            call_count["smtp"] += 1
-        def starttls(self):
-            raise OSError("TLS not supported")
+    def unexpected_starttls(*args, **kwargs):
+        raise AssertionError("SMTP must not be used in ssl mode")
 
-    class StubSMTP_SSL(StubOK):
-        pass
-
-    monkeypatch.setattr(smtplib, "SMTP", StubSMTP_TLS_Fails)
-    monkeypatch.setattr(smtplib, "SMTP_SSL", StubSMTP_SSL)
+    monkeypatch.setattr(smtplib, "SMTP", unexpected_starttls)
+    monkeypatch.setattr(smtplib, "SMTP_SSL", StubSMTPSSL)
     send_email(config, "<html>ssl</html>")
+    assert calls == ["ssl"]
     assert len(sent) == 1
 
 
-def test_send_email_falls_back_to_plain(config, monkeypatch):
-    sent = []
-    call_count = {"smtp": 0}
+def test_send_email_starttls_failure_does_not_fallback(config, monkeypatch):
+    from omegaconf import open_dict
 
-    StubOK = make_stub_smtp(sent)
+    with open_dict(config):
+        config.email.smtp_security = "starttls"
+    calls = []
 
-    class StubSMTP_TLS_Fails:
-        def __init__(self, *a, **kw):
-            call_count["smtp"] += 1
-            if call_count["smtp"] == 1:
-                pass  # first SMTP() call succeeds, but starttls will fail
-            else:
-                pass  # third SMTP() call is the plain fallback
+    class StubSMTP:
+        def __init__(self, *args, **kwargs):
+            calls.append("smtp")
+
         def starttls(self):
-            raise OSError("TLS not supported")
-        def login(self, u, p):
-            pass
-        def sendmail(self, s, r, m):
-            sent.append((s, r, m))
+            raise OSError("STARTTLS unavailable")
+
         def quit(self):
             pass
 
-    class StubSMTP_SSL_Fails:
-        def __init__(self, *a, **kw):
-            raise OSError("SSL not supported")
+    def unexpected_ssl(*args, **kwargs):
+        raise AssertionError("STARTTLS failure must not fall back to SSL")
 
-    monkeypatch.setattr(smtplib, "SMTP", StubSMTP_TLS_Fails)
-    monkeypatch.setattr(smtplib, "SMTP_SSL", StubSMTP_SSL_Fails)
-    send_email(config, "<html>plain</html>")
+    monkeypatch.setattr(smtplib, "SMTP", StubSMTP)
+    monkeypatch.setattr(smtplib, "SMTP_SSL", unexpected_ssl)
+
+    with pytest.raises(OSError, match="STARTTLS unavailable"):
+        send_email(config, "<html>no fallback</html>")
+    assert calls == ["smtp"]
+
+
+def test_send_email_legacy_port_465_infers_ssl_and_warns(config, monkeypatch):
+    from omegaconf import open_dict
+
+    with open_dict(config):
+        config.email.smtp_port = 465
+        config.email.smtp_security = None
+    sent = []
+    warnings = []
+
+    monkeypatch.setattr(smtplib, "SMTP_SSL", make_stub_smtp(sent))
+    monkeypatch.setattr(
+        smtplib,
+        "SMTP",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("expected SSL inference")),
+    )
+    monkeypatch.setattr("zotero_arxiv_daily.utils.logger.warning", lambda message, *args: warnings.append(message.format(*args)))
+    send_email(config, "<html>legacy ssl</html>")
+    assert len(sent) == 1
+    assert "inferred 'ssl' from SMTP port 465" in warnings[0]
+
+
+def test_send_email_legacy_non_465_port_infers_starttls(config, monkeypatch):
+    from omegaconf import open_dict
+
+    with open_dict(config):
+        config.email.smtp_security = None
+    sent = []
+    calls = []
+
+    class StubSMTP(make_stub_smtp(sent)):
+        def starttls(self):
+            calls.append("starttls")
+
+    monkeypatch.setattr(smtplib, "SMTP", StubSMTP)
+    monkeypatch.setattr(
+        smtplib,
+        "SMTP_SSL",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("expected STARTTLS inference")),
+    )
+    send_email(config, "<html>legacy starttls</html>")
+    assert calls == ["starttls"]
+    assert len(sent) == 1
+
+
+def test_send_email_rejects_unknown_security_mode(config):
+    from omegaconf import open_dict
+
+    with open_dict(config):
+        config.email.smtp_security = "plain"
+
+    with pytest.raises(ValueError, match="either 'ssl' or 'starttls'"):
+        send_email(config, "<html>invalid</html>")
+
+
+def test_send_email_preserves_login_failure_when_cleanup_fails(config, monkeypatch):
+    from omegaconf import open_dict
+
+    with open_dict(config):
+        config.email.smtp_security = "starttls"
+
+    class StubSMTP:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def starttls(self):
+            pass
+
+        def login(self, user, password):
+            raise smtplib.SMTPAuthenticationError(535, b"login failed")
+
+        def quit(self):
+            raise smtplib.SMTPServerDisconnected("cleanup failed")
+
+    monkeypatch.setattr(smtplib, "SMTP", StubSMTP)
+
+    with pytest.raises(smtplib.SMTPAuthenticationError, match="login failed"):
+        send_email(config, "<html>login failure</html>")
+
+
+def test_send_email_preserves_send_failure_when_cleanup_fails(config, monkeypatch):
+    from omegaconf import open_dict
+
+    with open_dict(config):
+        config.email.smtp_security = "starttls"
+
+    class StubSMTP:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def starttls(self):
+            pass
+
+        def login(self, user, password):
+            pass
+
+        def sendmail(self, sender, recipients, message):
+            raise smtplib.SMTPDataError(554, b"send failed")
+
+        def quit(self):
+            raise smtplib.SMTPServerDisconnected("cleanup failed")
+
+    monkeypatch.setattr(smtplib, "SMTP", StubSMTP)
+
+    with pytest.raises(smtplib.SMTPDataError, match="send failed"):
+        send_email(config, "<html>send failure</html>")
+
+
+def test_send_email_ignores_cleanup_failure_after_success(config, monkeypatch):
+    from omegaconf import open_dict
+
+    with open_dict(config):
+        config.email.smtp_security = "starttls"
+    sent = []
+
+    class StubSMTP(make_stub_smtp(sent)):
+        def quit(self):
+            raise smtplib.SMTPServerDisconnected("already disconnected")
+
+    monkeypatch.setattr(smtplib, "SMTP", StubSMTP)
+    send_email(config, "<html>sent before cleanup failure</html>")
     assert len(sent) == 1
 
 
@@ -191,6 +326,7 @@ def test_send_email_supports_receiver_list(config, monkeypatch):
 
     with open_dict(config):
         config.email.receivers = ["first@example.com", "second@example.com"]
+        config.email.smtp_security = "starttls"
     sent = []
     monkeypatch.setattr(smtplib, "SMTP", make_stub_smtp(sent))
     send_email(config, "<html>multiple</html>")

@@ -7,11 +7,11 @@ This fork uses SciX as its astronomy discovery layer while keeping the upstream 
 | Concern | Current canonical value | Compatibility behavior |
 | --- | --- | --- |
 | Retriever name | `scix` | `ads` remains a legacy alias |
-| Token | `SCIX_API_TOKEN` | Falls back to `ADS_API_TOKEN`; existing tokens do not need rotation |
+| Token | `SCIX_API_TOKEN` | Falls back to `ADS_API_TOKEN`; unexposed existing tokens remain compatible, but any exposed token must be revoked |
 | API base | `https://api.adsabs.harvard.edu/v1` | Configurable; change only after SciX publishes a new production server |
 | Record URL | `https://scixplorer.org/abs/<bibcode>/abstract` | New user-facing links use SciX |
 | Stable ID | `ads:<bibcode>` | Preserved to prevent duplicate delivery |
-| State path | `.runtime/state/ads.json` | Preserved so existing private caches continue to work |
+| State path | `.runtime/state/ads.json` | Preserved so existing delivery-state caches continue to work |
 | Actions cache key | `ads-state-*` | Preserved across the migration |
 
 Do not configure both `scix` and `ads`: they query the same service, and the executor rejects the pair before making a request.
@@ -55,6 +55,12 @@ SciX-only records are intended for a private personal digest. Confirm multi-reci
 - Network and server failures are retried; authentication, contract, and rate-limit failures remain actionable errors.
 - The requested response contract includes `identifier`, `entry_date`, and `keyword_schema`. The opt-in live test confirms that `identifier` remains retrievable.
 
+## SMTP transport
+
+`email.smtp_security` (or `SMTP_SECURITY` in the workflow) accepts only `ssl` and `starttls`. Use `ssl` with implicit TLS, normally on port 465, and `starttls` with SMTP upgrade, normally on port 587. A legacy configuration that omits the field infers `ssl` for port 465 and `starttls` otherwise, and warns. Unsupported values fail configuration, and delivery never falls back to plaintext SMTP.
+
+If a SciX/ADS token appears in a chat, issue, log, or committed file, revoke it and generate a replacement before running the workflow again. Store the replacement only in the fork's `SCIX_API_TOKEN` Actions secret. Do not put credentials in `config/custom.yaml` or `CUSTOM_CONFIG`.
+
 Official references:
 
 - [SciX API](https://scixplorer.org/scixhelp/api-scix/)
@@ -77,6 +83,22 @@ SCIX_LIVE_TEST=1 SCIX_API_TOKEN=... \
 
 Run it manually during the transition or after an announced API change; it is skipped by default and is not required in CI.
 
+## Deployment policy
+
+Keep this fork on GitHub Actions for the daily batch workflow. It already supplies scheduling, secret injection, a delivery-state cache, and Pages deployment without a server to patch or monitor. Set this customized branch as the fork's default branch and enable its workflow in the fork; neither operation requires a pull request to upstream.
+
+The compatibility cursor remains `.runtime/state/ads.json` and its `ads-state-*` cache keys remain stable. GitHub Actions cache is a convenience rather than durable or confidential storage: the repository cache is capped at 10 GB, entries not accessed for seven days can be evicted, and cache contents may be readable by workflows associated with pull requests. A missing cursor is treated as a first run, so this mechanism is suitable for daily duplicate suppression but not secrets, long-term audit, backup, or strict delivery guarantees. See GitHub's [dependency caching reference](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching).
+
+Observe one successful manual test followed by 14 daily runs. Build a new Python 3.13 one-shot container only if at least one of these thresholds is met:
+
+- required schedule precision becomes tighter than 15 minutes;
+- Actions misses at least two runs, or delays them by more than two hours, during the 14-day observation;
+- an equivalent server-versus-runner test proves a provider is repeatedly unreachable only from hosted runners;
+- runtime exceeds three hours or cache usage approaches 10 GB;
+- durable state, backups, auditing, or private-only distribution becomes a requirement.
+
+Do not restore the deleted historical Dockerfile. A future server deployment should use host scheduling (`systemd timer` or cron) to start a one-shot container and persist `.runtime`, `public`, and the Hugging Face model cache.
+
 ## Upstream merge policy
 
 Expected future conflict hotspots remain limited to:
@@ -86,6 +108,6 @@ Expected future conflict hotspots remain limited to:
 - `retriever/arxiv_retriever.py`: reusable ID fetch and conversion helpers.
 - `retriever/scix_retriever.py`: the fork-owned SciX adapter.
 - `config/base.yaml`: additive SciX and Atom schema.
-- `.github/workflows/main.yml`: fork-owned schedule, private state cache, and Pages deployment.
+- `.github/workflows/main.yml`: fork-owned schedule, delivery-state cache, and Pages deployment.
 
 The numerical reranking interface remains generic: candidates expose `ranking_text`, while concrete retrievers remain registered adapters. For a future upstream sync, preserve the content boundary and compatibility identifiers above rather than choosing either conflict side wholesale.

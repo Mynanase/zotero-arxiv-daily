@@ -167,6 +167,7 @@ def test_run_end_to_end(config, monkeypatch):
         config.executor.source = ["arxiv"]
         config.executor.reranker = "api"
         config.executor.send_empty = False
+        config.email.smtp_security = "starttls"
 
     # 1. Stub pyzotero
     stub_zot = make_stub_zotero_client()
@@ -262,6 +263,7 @@ def test_run_no_papers_send_empty_true(config, monkeypatch):
         config.executor.source = ["arxiv"]
         config.executor.reranker = "api"
         config.executor.send_empty = True
+        config.email.smtp_security = "starttls"
 
     stub_zot = make_stub_zotero_client()
     monkeypatch.setattr("zotero_arxiv_daily.executor.zotero.Zotero", lambda *a, **kw: stub_zot)
@@ -334,6 +336,7 @@ def test_scix_only_record_stays_out_of_remote_and_public_feed(config, monkeypatc
         config.source.scix.state_path = str(state_path)
         config.output.atom.enabled = True
         config.output.atom.path = str(feed_path)
+        config.email.smtp_security = "starttls"
 
     sentinel = "PRIVATE SCIX ABSTRACT SENTINEL"
     retrieved = [
@@ -422,6 +425,7 @@ def test_scix_state_marks_only_papers_actually_delivered(config, monkeypatch, tm
         config.source.scix.query = "database:astronomy"
         config.source.scix.state_path = str(state_path)
         config.output.atom.enabled = False
+        config.email.smtp_security = "starttls"
 
     retrieved = [
         Paper(

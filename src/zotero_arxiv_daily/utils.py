@@ -159,6 +159,21 @@ def send_email(config:DictConfig, html:str):
     password = config.email.sender_password
     smtp_server = config.email.smtp_server
     smtp_port = config.email.smtp_port
+    configured_security = config.email.get("smtp_security")
+    if configured_security is None:
+        smtp_security = "ssl" if int(smtp_port) == 465 else "starttls"
+        logger.warning(
+            "email.smtp_security is not configured; inferred '{}' from SMTP port {}. "
+            "Set it explicitly to 'ssl' or 'starttls'.",
+            smtp_security,
+            smtp_port,
+        )
+    else:
+        smtp_security = str(configured_security).strip().lower()
+
+    if smtp_security not in {"ssl", "starttls"}:
+        raise ValueError("config.email.smtp_security must be either 'ssl' or 'starttls'.")
+
     def _format_addr(s):
         name, addr = parseaddr(s)
         return formataddr((Header(name, 'utf-8').encode(), addr))
@@ -171,19 +186,17 @@ def send_email(config:DictConfig, html:str):
 
     server = None
     try:
-        try:
+        if smtp_security == "ssl":
+            server = smtplib.SMTP_SSL(smtp_server, smtp_port)
+        else:
             server = smtplib.SMTP(smtp_server, smtp_port)
             server.starttls()
-        except Exception as e:
-            logger.debug(f"Failed to use TLS. {e}\nTry to use SSL.")
-            try:
-                server = smtplib.SMTP_SSL(smtp_server, smtp_port)
-            except Exception as ssl_error:
-                logger.debug(f"Failed to use SSL. {ssl_error}\nTry to use plain text.")
-                server = smtplib.SMTP(smtp_server, smtp_port)
 
         server.login(sender, password)
         server.sendmail(sender, receivers, msg.as_string())
     finally:
         if server is not None:
-            server.quit()
+            try:
+                server.quit()
+            except Exception as error:
+                logger.warning("Failed to close the SMTP connection cleanly: {}", error)

@@ -5,6 +5,7 @@ on:
 jobs:
   calculate-and-send:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -14,6 +15,17 @@ jobs:
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v7.1.4
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Cache Hugging Face model
+        uses: actions/cache@v4
+        with:
+          path: .cache/huggingface/hub
+          key: huggingface-model-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('uv.lock', 'config/base.yaml', 'config/custom.yaml') }}
+          restore-keys: |
+            huggingface-model-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Run debug recommendation
         env:
@@ -24,13 +36,18 @@ jobs:
           SENDER: ${{ secrets.SENDER }}
           RECEIVER: ${{ secrets.RECEIVER }}
           SENDER_PASSWORD: ${{ secrets.SENDER_PASSWORD }}
+          SMTP_SECURITY: ${{ vars.SMTP_SECURITY || 'ssl' }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_API_BASE: ${{ secrets.OPENAI_API_BASE || vars.OPENAI_API_BASE }}
           MODEL_NAME: ${{ vars.MODEL_NAME || 'gpt-4o-mini' }}
           CUSTOM_CONFIG: ${{ vars.CUSTOM_CONFIG }}
+          HF_HUB_CACHE: ${{ github.workspace }}/.cache/huggingface/hub
         run: |
           export DEBUG=true
           if [ -n "$CUSTOM_CONFIG" ]; then
             printf '%s\n' "$CUSTOM_CONFIG" > config/custom.yaml
           fi
           uv run src/zotero_arxiv_daily/main.py
+
+      - name: Validate Atom feed
+        run: uv run python -c "import xml.etree.ElementTree as ET; ET.parse('public/index.xml')"

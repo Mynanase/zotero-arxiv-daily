@@ -37,6 +37,7 @@ email:
   receivers: null # Preferred multi-recipient form. Example: [abc@outlook.com, second@example.com]
   smtp_server: ??? # The SMTP server that sends the email. Ask your email provider (Gmail, QQ, Outlook, ...) for its SMTP server. Example: smtp.qq.com
   smtp_port: ??? # The port of SMTP server. Example: 465
+  smtp_security: null # ssl or starttls. null preserves legacy configs and infers ssl for port 465, starttls otherwise.
   sender_password: ??? # The password of the sender account. Note that it's not necessarily the password for logging in the e-mail client, but the authentication code for SMTP service. Ask your email provider for this. Example: abcdefghijklmn
 
 llm:
