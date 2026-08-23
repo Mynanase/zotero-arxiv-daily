@@ -44,7 +44,8 @@ jobs:
           RECEIVER: ${{ secrets.RECEIVER }}
           SENDER_PASSWORD: ${{ secrets.SENDER_PASSWORD }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENAI_API_BASE: ${{ secrets.OPENAI_API_BASE }}
+          OPENAI_API_BASE: ${{ secrets.OPENAI_API_BASE || vars.OPENAI_API_BASE }}
+          MODEL_NAME: ${{ vars.MODEL_NAME || 'gpt-4o-mini' }}
           LANGUAGE: ${{ vars.LANGUAGE || 'Chinese' }}
           TRANSLATE_TITLE: ${{ vars.TRANSLATE_TITLE || 'false' }}
           RSS_TITLE: ${{ vars.RSS_TITLE || 'Astronomy Paper Recommendations' }}

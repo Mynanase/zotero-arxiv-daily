@@ -75,8 +75,18 @@ Below are all the secrets you need to set. They are invisible to anyone includin
 | RECEIVER | One e-mail address, or a comma-separated list, that receives the paper list. | abc@outlook.com |
 | SCIX_API_TOKEN | Personal SciX API token. An existing ADS token continues to work; copy it from your [SciX account](https://scixplorer.org/scixhelp/userpreferences-scix/scix-account). Never place it in `CUSTOM_CONFIG` or commit it. | `...` |
 | ADS_API_TOKEN | Optional legacy secret. The workflows fall back to it, so existing forks do not need to rotate or rename their token immediately. | `...` |
-| OPENAI_API_KEY | API Key when using the API to access LLMs. You can get FREE API for using advanced open source LLMs in [SiliconFlow](https://cloud.siliconflow.cn/i/b3XhBRAm). | sk-xxx |
-| OPENAI_API_BASE | API URL when using the API to access LLMs. | https://api.siliconflow.cn/v1 |
+| OPENAI_API_KEY | API key for any OpenAI-compatible LLM provider, including DeepSeek, OpenRouter, and SiliconFlow. | sk-xxx |
+
+### DeepSeek API
+
+[DeepSeek uses an OpenAI-compatible Chat Completions API](https://api-docs.deepseek.com/guides/function_calling), so no provider-specific adapter is required. Store the DeepSeek key in the existing `OPENAI_API_KEY` secret and configure these repository variables:
+
+| Type | Name | Value |
+| --- | --- | --- |
+| Variable | `OPENAI_API_BASE` | `https://api.deepseek.com` |
+| Variable | `MODEL_NAME` | `deepseek-v4-flash` (recommended) or `deepseek-v4-pro` |
+
+The older aliases `deepseek-chat` and `deepseek-reasoner` were [retired in July 2026](https://api-docs.deepseek.com/updates/), so new configurations should use the V4 model names. Other OpenAI-compatible providers use the same three settings: `OPENAI_API_KEY`, `OPENAI_API_BASE`, and `MODEL_NAME`.
 
 The checked-in `config/custom.yaml` contains the astronomy defaults. Either edit it in your fork or set the public variable `CUSTOM_CONFIG` to replace it at runtime. If `CUSTOM_CONFIG` is empty, the workflow keeps the checked-in file.
 ![vars](./assets/repo_var.png)
@@ -100,7 +110,7 @@ llm:
     key: ${oc.env:OPENAI_API_KEY}
     base_url: ${oc.env:OPENAI_API_BASE}
   generation_kwargs:
-    model: gpt-4o-mini
+    model: ${oc.env:MODEL_NAME,gpt-4o-mini}
   language: ${oc.env:LANGUAGE,English}
   translate_title: ${oc.decode:${oc.env:TRANSLATE_TITLE,false}}
 
